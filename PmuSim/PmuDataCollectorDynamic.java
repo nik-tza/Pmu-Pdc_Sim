@@ -24,7 +24,7 @@ public class PmuDataCollectorDynamic extends SimEntity {
     
     // Collection parameters
     private final int REQUIRED_PMU_COUNT;
-    private static final double MAX_WAITING_LATENCY =  0.0449; // **max waiting for late PMU data**
+    private static final double MAX_WAITING_LATENCY =  0.045; // **max waiting for late PMU data**
     
     // Fixed PMU data size (2KB)
     private static final double PMU_DATA_SIZE_KB = 2.0;

@@ -4,6 +4,9 @@
 
 This system simulates a **Smart Grid Power Monitoring Network** using **PMU (Phasor Measurement Unit) sensors** that send data to a **TSO (Transmission System Operator)** for real-time grid analysis. The system models realistic network delays, distance-based routing, and dynamic data collection windows.
 
+![simulation_map](PmuSim/Pmu_output/45ms_max_pmu_waiting/pmu_simulation_map.png)
+
+
 ### 🎯 Core Concept
 
 **PMU Sensors → GNB/Edge Datacenters → TELCO Hub → TSO Cloud**
