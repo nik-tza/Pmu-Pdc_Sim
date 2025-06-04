@@ -27,7 +27,7 @@ PMU Sensors (multiple) → Measurements → Network Transfer → Data Collection
 ```
 PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
     ↑               ↑            ↑           ↑
-  WiFi/5G      MAN Network  MAN Network  WAN/Internet Network
+    5G        MAN Network   MAN Network   WAN Network
  
 ```
 
@@ -56,7 +56,7 @@ PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
 - **Grid Analysis creation**: Analysis tasks when window closes
 
 ### 4. **PmuTaskOrchestrator.java** - Task Management
-**Responsibility**: Separates PMU data tasks from Grid Analysis tasks
+**Responsibility**: Orchestrates where PMU sends data, Separates PMU data tasks from Grid Analysis tasks
 - **Loop prevention**: Prevents infinite loops from completed Grid Analysis
 - **Event forwarding**: Sends PMU data to DataCollector
 
@@ -100,8 +100,8 @@ PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
 
 ### Phase 3: **Grid Analysis**
 1. **Window completion**: When PMU data collection window closes
-2. **Analysis task creation**: Grid Analysis tasks for power monitoring
-3. **TSO processing**: Computational analysis of collected data
+2. **Analysis task creation**: Grid Analysis tasks for power monitoring is created and executed
+
 
 ### Phase 4: **Results & Analysis**
 1. **Log generation**: Detailed CSV files with network and task data
@@ -122,7 +122,7 @@ PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
 - **PMU frequency**: Configurable measurements per time unit
 - **Grid Analysis**: Configurable computational complexity
 - **Analysis latency**: Configurable max processing time
-- **TSO location**: Configurable cloud position
+
 
 ---
 
@@ -162,78 +162,11 @@ PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
 - **GENERATION_TIME_TIMEOUT**: Collection window timeout
 - **Task routing**: Orchestrator forwards events based on task type
 
-### Extensible Components
 
-#### Adding New PMU Types
-```java
-// Extend PmuTaskGenerator
-@Override
-protected void insertPmuDataTask(...) {
-    // Custom PMU behavior
-    // Different data sizes, frequencies, priorities
-}
-```
-
-#### Custom Network Models
-```java
-// Extend PmuNetworkModel
-@Override
-public NetworkTransferResult calculateNetworkTransferWithDetails(...) {
-    // Custom routing algorithms
-    // Different hop configurations
-    // QoS implementations
-}
-```
-
-#### Enhanced Data Collection
-```java
-// Extend PmuDataCollectorDynamic
-@Override
-public void collectPmuData(Task dataTask) {
-    // Custom collection strategies
-    // Priority-based processing
-    // Adaptive window sizing
-}
-```
-
-### Performance Optimization Hooks
-- **Parallel collection**: Multiple collection windows simultaneously
-- **Predictive routing**: Machine learning for optimal GNB selection
-- **Adaptive thresholds**: Dynamic `MAX_WAITING_LATENCY` based on conditions
-- **Load balancing**: Distribute Grid Analysis across multiple TSO nodes
-
-### Integration Points
-- **External monitoring**: REST API for real-time statistics
-- **Database storage**: Replace CSV with database persistence
-- **Message queues**: Kafka/RabbitMQ for distributed processing
-- **Containerization**: Docker deployment with orchestration
-
----
+--
 
 ## 🚀 Quick Start
 
 See [QUICK_START.md](QUICK_START.md) for step-by-step execution instructions.
 
 ---
-
-## 🔍 Research Applications
-
-### Smart Grid Research
-- **PMU placement optimization**: Test different sensor configurations
-- **Network resilience**: Simulate GNB failures and backup routing
-- **Data fusion algorithms**: Multiple PMU sources integration
-- **Real-time analytics**: Grid stability monitoring algorithms
-
-### Edge Computing Research  
-- **Latency optimization**: Edge vs cloud processing trade-offs
-- **Resource allocation**: Dynamic task scheduling at edge
-- **Network optimization**: Bandwidth management and QoS
-- **Fault tolerance**: Recovery strategies for edge failures
-
-### Performance Analysis
-- **Scalability testing**: Increase PMU count for large-scale grids
-- **Network conditions**: Simulate congestion, packet loss, outages
-- **Collection strategies**: Compare fixed vs adaptive windows
-- **Analysis algorithms**: Different Grid Analysis computational models
-
- 

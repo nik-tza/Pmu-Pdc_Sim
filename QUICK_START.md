@@ -49,34 +49,8 @@ PmuSim/Pmu_settings/
 ### Method 1: simulation_parameters.properties
 ```properties
 # File: PmuSim/Pmu_settings/simulation_parameters.properties
-max_number_of_edge_devices=50    # Increase for more PMUs
-```
-
-### Method 2: devices_list.xml
-Adding new PMU sensors:
-```xml
-<!-- File: PmuSim/Pmu_settings/devices_list.xml -->
-<devices>
-    <!-- Existing PMUs -->
-    <device>
-        <id>30</id>
-        <location>
-            <x_pos>1200</x_pos>
-            <y_pos>800</y_pos>
-        </location>
-        <applications>PMU_Data</applications>
-    </device>
-    
-    <!-- Add as many as needed -->
-    <device>
-        <id>31</id>
-        <location>
-            <x_pos>1400</x_pos>
-            <y_pos>900</y_pos>
-        </location>
-        <applications>PMU_Data</applications>
-    </device>
-</devices>
+min_number_of_edge_devices=30   #change both to same number
+max_number_of_edge_devices=30   #change both to same number
 ```
 
 ---
@@ -108,27 +82,17 @@ wan_bandwidth=100000000        # Configure as needed
 ### Distance Delays (for realistic propagation)
 ```java
 // File: PmuSim/PmuNetworkModel.java (around line 37)
-private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 5.0; 
-
-// Change to:
-private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 3.0;  // Faster
-// or
-private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 10.0; // Slower
+private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 30.0; 
 ```
 
 ---
 
 ## ⏱️ Collection Parameters
 
-### Max Waiting Time for PMU Data
+### Max PDC Waiting Time for PMU Data to arive
 ```java
 // File: PmuSim/PmuDataCollectorDynamic.java (around line 27)
-private static final double MAX_WAITING_LATENCY = 0.018; // Configure as needed
-
-// Change to:
-private static final double MAX_WAITING_LATENCY = 0.050; // More lenient
-// or  
-private static final double MAX_WAITING_LATENCY = 0.010; // More strict
+private static final double MAX_WAITING_LATENCY = 0.0449; // Configure as needed
 ```
 
 ### PMU Measurement Frequency
@@ -189,23 +153,13 @@ private static final double MAX_WAITING_LATENCY = 0.010; // More strict
 ### Simulation Time
 ```properties
 # File: PmuSim/Pmu_settings/simulation_parameters.properties
-simulation_duration=60.0    # Configure as needed
-
-# For longer simulation:
-simulation_duration=300.0   # 5 minutes
-simulation_duration=1800.0  # 30 minutes
+simulation_duration=20.0    # Configure as needed (minutes)
 ```
 
 ### Grid Analysis Complexity
 ```java
 // File: PmuSim/PmuDataCollectorDynamic.java (around line 22)
-private static final long GRID_ANALYSIS_LENGTH_MI = 15000; // Configure as needed
-
-// For simpler analysis:
-private static final long GRID_ANALYSIS_LENGTH_MI = 5000;  // Less complex
-
-// For more complex analysis:
-private static final long GRID_ANALYSIS_LENGTH_MI = 50000; // More complex
+private static final long GRID_ANALYSIS_LENGTH_MI = 15000; // Configure as needed (how many computing resources the task requires)
 ```
 
 ---
@@ -267,55 +221,3 @@ private static boolean PRINT_TO_TERMINAL = true;
 ```
 
 ---
-
-## 🔧 Debug Mode
-
-### Enable Detailed Logging
-```java
-// Uncomment debug lines in files:
-// PmuNetworkModel.java
-// PmuDataCollectorDynamic.java  
-// PmuTaskOrchestrator.java
-
-// Look for lines starting with:
-System.out.printf("DEBUG: ...");
-```
-
-### Network Transfer Debugging
-```java
-// File: PmuSim/PmuNetworkModel.java
-// Uncomment lines starting with:
-// System.out.printf("PmuNetworkModel - ...");
-```
-
----
-
-## 📋 Common Configuration Combinations
-
-### **Scenario 1: Large Scale Grid**
-```properties
-# simulation_parameters.properties
-max_number_of_edge_devices=100
-length=5000
-width=5000
-simulation_duration=120.0
-```
-
-### **Scenario 2: High Frequency Monitoring**
-```xml
-<!-- applications.xml -->
-<rate>5</rate>  <!-- 5 measurements per second -->
-```
-
-### **Scenario 3: Network Stress Test**
-```properties
-# Lower bandwidth to create congestion
-cellular_bandwidth=1000000     # Reduced bandwidth
-man_bandwidth=10000000        # Reduced bandwidth
-```
-
-### **Scenario 4: Strict Deadlines**
-```java
-// Configure very strict waiting time
-// MAX_WAITING_LATENCY = 0.005; // Very strict deadline
-```
