@@ -4,7 +4,6 @@
 
 ### **Fast method:** Script **p_run_simulation.sh**
 ```bash
-cd EdgeSimulator
 chmod +x p_run_simulation.sh && ./p_run_simulation.sh  
 ```
 
@@ -12,7 +11,6 @@ chmod +x p_run_simulation.sh && ./p_run_simulation.sh
 
 ### Step 1: Compilation
 ```bash
-cd EdgeSimulator
 mvn clean compile
 ```
 
