@@ -1,0 +1,156 @@
+<?xml version="1.0" ?>
+<edge_datacenters>
+	<!-- TELCO Edge Datacenter - Central Hub -->
+	<datacenter name="TELCO">
+		<periphery>false</periphery>
+		<idleConsumption>20</idleConsumption>
+		<maxConsumption>50</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>1000</x_pos>
+			<y_pos>1000</y_pos>
+		</location>
+		<cores>8</cores>
+		<mips>120000</mips>
+		<ram>32768</ram>
+		<storage>256000</storage>
+	</datacenter>
+
+	<!-- Edge Datacenter 1 - Top Left -->
+	<datacenter name="EDGE_1">
+		<periphery>true</periphery>
+		<idleConsumption>7</idleConsumption>
+		<maxConsumption>15</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>500</x_pos>
+			<y_pos>500</y_pos>
+		</location>
+		<cores>4</cores>
+		<mips>80000</mips>
+		<ram>16384</ram>
+		<storage>128000</storage>
+	</datacenter>
+	
+	<!-- Edge Datacenter 2 - Top Right -->
+	<datacenter name="EDGE_2">
+		<periphery>true</periphery>
+		<idleConsumption>7</idleConsumption>
+		<maxConsumption>15</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>1500</x_pos>
+			<y_pos>500</y_pos>
+		</location>
+		<cores>4</cores>
+		<mips>80000</mips>
+		<ram>16384</ram>
+		<storage>128000</storage>
+	</datacenter>
+	
+	<!-- Edge Datacenter 3 - Middle Left -->
+	<datacenter name="EDGE_3">
+		<periphery>true</periphery>
+		<idleConsumption>7</idleConsumption>
+		<maxConsumption>15</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>500</x_pos>
+			<y_pos>1000</y_pos>
+		</location>
+		<cores>4</cores>
+		<mips>80000</mips>
+		<ram>16384</ram>
+		<storage>128000</storage>
+	</datacenter>
+	
+	<!-- Edge Datacenter 4 - Middle Right -->
+	<datacenter name="EDGE_4">
+		<periphery>true</periphery>
+		<idleConsumption>7</idleConsumption>
+		<maxConsumption>15</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>1500</x_pos>
+			<y_pos>1000</y_pos>
+		</location>
+		<cores>4</cores>
+		<mips>80000</mips>
+		<ram>16384</ram>
+		<storage>128000</storage>
+	</datacenter>
+	
+	<!-- Edge Datacenter 5 - Bottom Left -->
+	<datacenter name="EDGE_5">
+		<periphery>true</periphery>
+		<idleConsumption>7</idleConsumption>
+		<maxConsumption>15</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>500</x_pos>
+			<y_pos>1500</y_pos>
+		</location>
+		<cores>4</cores>
+		<mips>80000</mips>
+		<ram>16384</ram>
+		<storage>128000</storage>
+	</datacenter>
+	
+	<!-- Edge Datacenter 6 - Bottom Right -->
+	<datacenter name="EDGE_6">
+		<periphery>true</periphery>
+		<idleConsumption>7</idleConsumption>
+		<maxConsumption>15</maxConsumption>
+		<isOrchestrator>false</isOrchestrator>
+		<location>
+			<x_pos>1500</x_pos>
+			<y_pos>1500</y_pos>
+		</location>
+		<cores>4</cores>
+		<mips>80000</mips>
+		<ram>16384</ram>
+		<storage>128000</storage>
+	</datacenter>
+	
+	<!-- Network Links -->
+	<network_links>
+		<!-- TELCO to TSO Cloud connection -->
+		<link>
+			<from>TELCO</from>
+			<to>TSO</to>
+			<latency>0.08</latency>
+		</link>
+		
+		<!-- Edge Datacenters to TELCO connections -->
+		<link>
+			<from>EDGE_1</from>
+			<to>TELCO</to>
+			<latency>0.02</latency>
+		</link>
+		<link>
+			<from>EDGE_2</from>
+			<to>TELCO</to>
+			<latency>0.02</latency>
+		</link>
+		<link>
+			<from>EDGE_3</from>
+			<to>TELCO</to>
+			<latency>0.02</latency>
+		</link>
+		<link>
+			<from>EDGE_4</from>
+			<to>TELCO</to>
+			<latency>0.02</latency>
+		</link>
+		<link>
+			<from>EDGE_5</from>
+			<to>TELCO</to>
+			<latency>0.02</latency>
+		</link>
+		<link>
+			<from>EDGE_6</from>
+			<to>TELCO</to>
+			<latency>0.02</latency>
+		</link>
+	</network_links>
+</edge_datacenters>

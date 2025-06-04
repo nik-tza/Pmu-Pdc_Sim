@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<cloud_data_centers>
+    <!-- TSO Cloud Datacenter for PMU Smart Grid -->
+    <datacenter name="TSO">
+        <idleConsumption>500</idleConsumption>
+        <maxConsumption>1000</maxConsumption>
+        <isOrchestrator>false</isOrchestrator>
+        <cores>64</cores>
+        <mips>150000</mips>
+        <ram>131072</ram>
+        <storage>2000000</storage>
+    </datacenter>
+</cloud_data_centers> 

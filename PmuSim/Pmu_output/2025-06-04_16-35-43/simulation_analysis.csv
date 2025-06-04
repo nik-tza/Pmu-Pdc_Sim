@@ -1,0 +1,80 @@
+Metric,Value
+=== PMU DATA TRANSFER STATISTICS ===,
+Total Data Volume,6678.00 KB
+,
+=== HOP-BY-HOP AVERAGE TIMING AND DISTANCES ===,
+PMU → GNB Time,0.0119s
+PMU → GNB Distance,318.3m
+GNB → TELCO Time,0.0292s
+GNB → TELCO Distance,638.1m
+TELCO → TSO Time,0.1028s
+TELCO → TSO Distance,1415.6m
+Total Path Time,0.1439s
+Total Path Distance,2372.0m
+,
+=== DEADLINE MISSED SUMMARY ===,
+Total Deadline Missed,31/1000
+Deadline Missed Rate,3.10%
+PMUs with Deadline Misses,12/30
+,
+=== DETAILED SUCCESSFUL TRANSFERS PER PMU ===,
+PMU_00 → GNB_5,30/33 (90.9%) - 0.0158s
+PMU_01 → GNB_5,32/33 (97.0%) - 0.0069s
+PMU_02 → GNB_3,34/34 (100.0%) - 0.0061s
+PMU_03 → GNB_6,33/33 (100.0%) - 0.0052s
+PMU_04 → GNB_2,29/33 (87.9%) - 0.0168s
+PMU_05 → GNB_4,34/34 (100.0%) - 0.0097s
+PMU_06 → GNB_2,30/33 (90.9%) - 0.0162s
+PMU_07 → GNB_2,34/34 (100.0%) - 0.0106s
+PMU_08 → GNB_2,31/33 (93.9%) - 0.0147s
+PMU_09 → GNB_4,34/34 (100.0%) - 0.0080s
+PMU_10 → GNB_1,32/33 (97.0%) - 0.0118s
+PMU_11 → GNB_1,33/33 (100.0%) - 0.0061s
+PMU_12 → GNB_5,28/33 (84.8%) - 0.0211s
+PMU_13 → GNB_5,30/33 (90.9%) - 0.0174s
+PMU_14 → GNB_2,33/33 (100.0%) - 0.0096s
+PMU_15 → GNB_3,33/33 (100.0%) - 0.0164s
+PMU_16 → GNB_1,31/33 (93.9%) - 0.0126s
+PMU_17 → GNB_3,34/34 (100.0%) - 0.0096s
+PMU_18 → GNB_5,29/33 (87.9%) - 0.0220s
+PMU_19 → GNB_1,33/33 (100.0%) - 0.0162s
+PMU_20 → GNB_5,31/33 (93.9%) - 0.0176s
+PMU_21 → GNB_3,34/34 (100.0%) - 0.0095s
+PMU_22 → GNB_3,34/34 (100.0%) - 0.0112s
+PMU_23 → GNB_4,33/33 (100.0%) - 0.0041s
+PMU_24 → GNB_3,34/34 (100.0%) - 0.0096s
+PMU_25 → GNB_3,34/34 (100.0%) - 0.0073s
+PMU_26 → GNB_1,33/33 (100.0%) - 0.0126s
+PMU_27 → GNB_2,34/34 (100.0%) - 0.0122s
+PMU_28 → GNB_2,33/33 (100.0%) - 0.0075s
+PMU_29 → GNB_2,32/33 (97.0%) - 0.0130s
+,
+=== SUCCESSFUL TRANSFERS SUMMARY BY GNB ===,
+GNB_1,162/165 (98.2%) from 5 PMUs
+GNB_2,256/266 (96.2%) from 8 PMUs
+GNB_3,237/237 (100.0%) from 7 PMUs
+GNB_4,101/101 (100.0%) from 3 PMUs
+GNB_5,180/198 (90.9%) from 6 PMUs
+GNB_6,33/33 (100.0%) from 1 PMUs
+,
+,
+=== GRID ANALYSIS TASK STATISTICS ===,
+Total Tasks,112
+Successful Tasks,112
+Failed Tasks,0
+Success Rate,100.00%
+,
+=== EXECUTION TIME (Successful tasks only) ===,
+Average Execution Time,0.1000s
+Minimum Execution Time,0.1000s
+Maximum Execution Time,0.1000s
+Standard Deviation,0.0000s
+,
+=== TOTAL PROCESSING TIME ===,
+Average Total Processing Time,0.1000s
+,
+=== BATCH INFORMATION ===,
+Complete Batches,55
+Timeout Batches,57
+Complete Batch Rate,49.11%
+Average PDC Waiting Time,0.0424s
