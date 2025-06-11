@@ -479,6 +479,78 @@ def calculate_pmu_to_gnb_average_times(simulation_folder: str) -> Dict[int, floa
         print(f"❌ Error calculating PMU to GNB times: {e}")
         return {}
 
+def calculate_gnb_to_telco_average_times(simulation_folder: str) -> Dict[str, float]:
+    """Calculate average GNB to TELCO transfer times from Sequential_simulation_pmu_data_transfers.csv."""
+    gnb_to_telco_times = {}  # {gnb_name: [list of times]}
+    
+    try:
+        pmu_csv_file = os.path.join(simulation_folder, "Sequential_simulation_pmu_data_transfers.csv")
+        
+        if not os.path.exists(pmu_csv_file):
+            print(f"WARNING: Sequential_simulation_pmu_data_transfers.csv not found for GNB-TELCO time calculation")
+            return {}
+        
+        print("📊 Calculating GNB to TELCO average transfer times...")
+        
+        with open(pmu_csv_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            
+            # Skip header
+            next(csv_reader)
+            
+            for line_num, row in enumerate(csv_reader, start=2):
+                try:
+                    if len(row) != 7:
+                        continue
+                    
+                    path = row[4].strip('"')  # Path column
+                    
+                    # Extract GNB to TELCO time from path
+                    # Format: "PMU -> GNB_6 (0.0000s, 419.6m) -> TELCO (0.0131s, 707.1m) -> GNB_6 (0.0113s, 707.1m)"
+                    if '->' in path:
+                        path_parts = path.split(' -> ')
+                        
+                        # Extract GNB name from first hop
+                        gnb_name = None
+                        if len(path_parts) >= 2:
+                            gnb_part = path_parts[1].strip()  # "GNB_6 (0.0000s, 419.6m)"
+                            import re
+                            gnb_match = re.match(r'(GNB_\d+)', gnb_part)
+                            if gnb_match:
+                                gnb_name = gnb_match.group(1)
+                        
+                        # Extract TELCO time from second hop
+                        if len(path_parts) >= 3 and gnb_name:
+                            telco_part = path_parts[2].strip()  # "TELCO (0.0131s, 707.1m)"
+                            telco_match = re.search(r'\(([\d.]+)s,', telco_part)
+                            if telco_match:
+                                gnb_to_telco_time = float(telco_match.group(1))
+                                
+                                if gnb_name not in gnb_to_telco_times:
+                                    gnb_to_telco_times[gnb_name] = []
+                                
+                                gnb_to_telco_times[gnb_name].append(gnb_to_telco_time)
+                
+                except (ValueError, IndexError) as e:
+                    continue
+                
+                # Continue processing all entries for accurate statistics
+        
+        # Calculate averages
+        gnb_averages = {}
+        for gnb_name, times in gnb_to_telco_times.items():
+            if times:
+                avg_time = sum(times) / len(times)
+                gnb_averages[gnb_name] = avg_time
+                print(f"  {gnb_name}: {len(times)} samples, avg time to TELCO: {avg_time:.4f}s")
+        
+        print(f"✅ Calculated average GNB-to-TELCO times for {len(gnb_averages)} GNBs")
+        return gnb_averages
+        
+    except Exception as e:
+        print(f"❌ Error calculating GNB to TELCO times: {e}")
+        return {}
+
 def create_simulation_map(simulation_folder: str, logger: logging.Logger):
     """Create the PMU simulation map showing GNBs, PMUs, TELCO and connections."""
     if not SHOW_PLOTS:
@@ -491,6 +563,9 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
     datacenters = parse_edge_datacenters_xml()
     links = parse_network_links_xml()
     pmus, hop_averages = read_pmu_positions_from_csv(simulation_folder)
+    
+    # **NEW: Get GNB to TELCO average latency times**
+    gnb_to_telco_times = calculate_gnb_to_telco_average_times(simulation_folder)
     
     # Get PMU count for map title
     max_pmus = params['max_edge_devices']
@@ -608,14 +683,32 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
                            ha='center', va='bottom',
                            bbox=dict(boxstyle="round,pad=0.1", facecolor='lightblue', alpha=0.7))
     
-    # **NEW: Add connections from all GNB datacenters to TELCO**
+    # **NEW: Add connections from all GNB datacenters to TELCO with latency labels**
     for datacenter in datacenters:
         if datacenter['name'].startswith('EDGE_'):
             gnb_x, gnb_y = datacenter['x'], datacenter['y']
+            edge_id = datacenter['name'].split('_')[1]
+            gnb_name = f"GNB_{edge_id}"
             
             # Draw connection line from GNB to TELCO
             plt.plot([gnb_x, telco_x], [gnb_y, telco_y], 'red', linestyle='-', 
                     linewidth=2, alpha=0.6, zorder=1)  # Behind other elements
+            
+            # **Add latency label on GNB-TELCO connection if available**
+            if gnb_name in gnb_to_telco_times:
+                avg_latency = gnb_to_telco_times[gnb_name]
+                
+                # Calculate midpoint for label placement
+                mid_x = (gnb_x + telco_x) / 2
+                mid_y = (gnb_y + telco_y) / 2
+                
+                # Add latency label
+                plt.annotate(f'{avg_latency:.4f}s', 
+                           (mid_x, mid_y), 
+                           xytext=(0, -10), textcoords='offset points',
+                           fontsize=8, fontweight='bold', color='darkred',
+                           ha='center', va='top',
+                           bbox=dict(boxstyle="round,pad=0.1", facecolor='lightcoral', alpha=0.7))
     
     # Plot settings
     plt.grid(True, linestyle='--', alpha=0.3)
