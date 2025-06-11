@@ -79,11 +79,21 @@ public class UpfTelcoLogger {
     // **NEW: Store first data network delays for each task**
     private Map<Integer, Double> taskFirstDataNetworkDelays = new HashMap<>();
     
-    // **NEW: Network volume tracking per layer**
+    // **NEW: Network volume tracking per layer (OLD SYSTEM - keep for compatibility)**
     private Map<String, Double> networkVolumePerLayer = new HashMap<>();
     private Map<String, Integer> transferCountPerLayer = new HashMap<>();
     private List<String> networkUsageCsvRecords = new ArrayList<>();
     private static final String NETWORK_USAGE_CSV_HEADER = "NetworkLevel,TotalDataVolumeKB,TransferCount,AverageDataSizeKB";
+    
+    // **NEW: Individual node data volume tracking**
+    private Map<String, Double> dataVolumePMU = new HashMap<>();     // PMU_1 -> total volume
+    private Map<String, Integer> transferCountPMU = new HashMap<>();  // PMU_1 -> transfer count
+    private Map<String, Double> dataVolumeGNB = new HashMap<>();     // GNB_1 -> total volume  
+    private Map<String, Integer> transferCountGNB = new HashMap<>();  // GNB_1 -> transfer count
+    private double telcoDataVolume = 0.0;                            // Single TELCO value
+    private int telcoTransferCount = 0;                              // TELCO transfer count
+    private double tsoDataVolume = 0.0;                              // Single TSO value
+    private int tsoTransferCount = 0;                                // TSO transfer count
     
     /**
      * **Updated: Stores hop times for 3-hop path: PMU → GNB → TELCO → GNB**
@@ -713,6 +723,9 @@ public class UpfTelcoLogger {
                           " + PDCWait=" + pdcWaitingTime + " + ExecTime=" + executionTime + 
                           " = CustomTotal=" + customTotalTime);
         
+        // **NEW: Track TSO data processing (State Estimation results)**
+        trackTsoDataArrival(returnSizeKB);  // TSO processes the State Estimation output
+        
         // **NEW: Add to State Estimation CSV with GNB ID using custom total time**
         String stateEstimationCsvRecord = String.format("%.4f,%d,%s,%s,%s,%s,%.2f,%.2f,%.2f,%.0f,%.4f,%.4f,%.4f,%.4f,%s,%.4f,%d",
             currentTime,
@@ -809,13 +822,46 @@ public class UpfTelcoLogger {
     }
     
     /**
-     * **NEW: Track network data volume for each network layer**
+     * **OLD: Track network data volume for each network layer (keep for compatibility)**
      */
     public void trackNetworkVolume(String networkLevel, double dataSizeKB) {
         networkVolumePerLayer.put(networkLevel, 
             networkVolumePerLayer.getOrDefault(networkLevel, 0.0) + dataSizeKB);
         transferCountPerLayer.put(networkLevel, 
             transferCountPerLayer.getOrDefault(networkLevel, 0) + 1);
+    }
+    
+    /**
+     * **NEW: Track data volume for individual PMU node when task is generated**
+     */
+    public void trackPmuDataGeneration(String pmuId, double dataSizeKB) {
+        dataVolumePMU.put(pmuId, dataVolumePMU.getOrDefault(pmuId, 0.0) + dataSizeKB);
+        transferCountPMU.put(pmuId, transferCountPMU.getOrDefault(pmuId, 0) + 1);
+        System.out.println("DEBUG: Tracked PMU " + pmuId + " data: " + dataSizeKB + "KB, total: " + dataVolumePMU.get(pmuId));
+    }
+    
+    /**
+     * **NEW: Track data volume for individual GNB node when data arrives**
+     */
+    public void trackGnbDataArrival(String gnbId, double dataSizeKB) {
+        dataVolumeGNB.put(gnbId, dataVolumeGNB.getOrDefault(gnbId, 0.0) + dataSizeKB);
+        transferCountGNB.put(gnbId, transferCountGNB.getOrDefault(gnbId, 0) + 1);
+    }
+    
+    /**
+     * **NEW: Track data volume for TELCO when data arrives**
+     */
+    public void trackTelcoDataArrival(double dataSizeKB) {
+        telcoDataVolume += dataSizeKB;
+        telcoTransferCount++;
+    }
+    
+    /**
+     * **NEW: Track data volume for TSO when data arrives**
+     */
+    public void trackTsoDataArrival(double dataSizeKB) {
+        tsoDataVolume += dataSizeKB;
+        tsoTransferCount++;
     }
     
     /**
@@ -932,10 +978,26 @@ public class UpfTelcoLogger {
             // Use the path string from transfer result
             String path = transferResult.getPathString();
             
-            // **NEW: Track network volume for each hop**
+            // **OLD: Track network volume for each hop (keep for compatibility)**
             trackNetworkVolume("PMU_to_GNB", dataSizeKB);
             trackNetworkVolume("GNB_to_TELCO", dataSizeKB);
             trackNetworkVolume("TELCO_to_GNB", dataSizeKB);
+            
+            // **NEW: Track individual node data volumes**
+            // Track PMU data generation
+            String pmuId = "PMU_" + upfTelcoId;
+            trackPmuDataGeneration(pmuId, dataSizeKB);
+            
+            // Track GNB data arrival (extract GNB ID from path)
+            String gnbId = extractGnbFromPath(path);
+            if (gnbId != null) {
+                trackGnbDataArrival(gnbId, dataSizeKB);
+            }
+            
+            // Track TELCO data arrival (data always passes through TELCO in our 3-hop path)
+            trackTelcoDataArrival(dataSizeKB);
+            
+            // Note: TSO tracking will be done when State Estimation tasks are processed
             
             // Log the transfer with all details
             logUpfTelcoDataTransferFull(dataTask, upfTelcoId, dataSizeKB, path, false, transferResult.totalDelay);
@@ -946,20 +1008,133 @@ public class UpfTelcoLogger {
     }
     
     /**
+     * **NEW: Extract GNB ID from path string**
+     */
+    private String extractGnbFromPath(String path) {
+        try {
+            // Path format: "PMU_X -> GNB_Y (time) -> TELCO (time) -> GNB_Y (time)"
+            // Extract the first GNB_Y occurrence
+            if (path.contains("GNB_")) {
+                String[] parts = path.split(" -> ");
+                for (String part : parts) {
+                    if (part.trim().startsWith("GNB_")) {
+                        // Extract just "GNB_Y" part before the timing info
+                        String gnbPart = part.trim().split(" ")[0];
+                        return gnbPart;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("UpfTelcoLogger - Error extracting GNB from path: " + path);
+        }
+        return null;
+    }
+    
+    /**
      * **NEW: Save network usage statistics to CSV**
      */
     public void saveNetworkUsageCSV() {
         try {
             String csvFileName = getNetworkUsageCSVFileName();
             
-            // Create network usage statistics
-            for (String networkLevel : networkVolumePerLayer.keySet()) {
-                double totalVolume = networkVolumePerLayer.get(networkLevel);
-                int transferCount = transferCountPerLayer.get(networkLevel);
+            // **IMPORTANT: Clear old records first**
+            networkUsageCsvRecords.clear();
+            
+            // **NEW: Add network levels in specific order**
+            // 1. PMU_to_GNB
+            if (networkVolumePerLayer.containsKey("PMU_to_GNB")) {
+                double totalVolume = networkVolumePerLayer.get("PMU_to_GNB");
+                int transferCount = transferCountPerLayer.get("PMU_to_GNB");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("PMU_to_GNB,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 2. GNB_to_TELCO  
+            if (networkVolumePerLayer.containsKey("GNB_to_TELCO")) {
+                double totalVolume = networkVolumePerLayer.get("GNB_to_TELCO");
+                int transferCount = transferCountPerLayer.get("GNB_to_TELCO");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("GNB_to_TELCO,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 3. TELCO_to_GNB
+            if (networkVolumePerLayer.containsKey("TELCO_to_GNB")) {
+                double totalVolume = networkVolumePerLayer.get("TELCO_to_GNB");
+                int transferCount = transferCountPerLayer.get("TELCO_to_GNB");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("TELCO_to_GNB,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 4. StateEstimation_Input and Output (if they exist)
+            if (networkVolumePerLayer.containsKey("StateEstimation_Input")) {
+                double totalVolume = networkVolumePerLayer.get("StateEstimation_Input");
+                int transferCount = transferCountPerLayer.get("StateEstimation_Input");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("StateEstimation_Input,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            if (networkVolumePerLayer.containsKey("StateEstimation_Output")) {
+                double totalVolume = networkVolumePerLayer.get("StateEstimation_Output");
+                int transferCount = transferCountPerLayer.get("StateEstimation_Output");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("StateEstimation_Output,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 5. TSO statistics (add here before individual nodes)
+            if (tsoTransferCount > 0) {
+                double avgDataSize = tsoDataVolume / tsoTransferCount;
+                String csvRecord = String.format("TSO,%.6f,%d,%.6f",
+                    tsoDataVolume, tsoTransferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: Add individual PMU node statistics**
+            for (String pmuId : dataVolumePMU.keySet()) {
+                double totalVolume = dataVolumePMU.get(pmuId);
+                int transferCount = transferCountPMU.get(pmuId);
                 double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
                 
                 String csvRecord = String.format("%s,%.6f,%d,%.6f",
-                    networkLevel, totalVolume, transferCount, avgDataSize);
+                    pmuId, totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: Add individual GNB node statistics**
+            for (String gnbId : dataVolumeGNB.keySet()) {
+                double totalVolume = dataVolumeGNB.get(gnbId);
+                int transferCount = transferCountGNB.get(gnbId);
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                
+                String csvRecord = String.format("%s,%.6f,%d,%.6f",
+                    gnbId, totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NOTE: TELCO and TSO are handled above in specific order - removed duplicates**
+            
+            // **NEW: Add layer summaries**
+            // PMU Layer Total
+            double totalPmuVolume = dataVolumePMU.values().stream().mapToDouble(Double::doubleValue).sum();
+            int totalPmuTransfers = transferCountPMU.values().stream().mapToInt(Integer::intValue).sum();
+            if (totalPmuTransfers > 0) {
+                double avgPmuDataSize = totalPmuVolume / totalPmuTransfers;
+                String csvRecord = String.format("PMU_LAYER_TOTAL,%.6f,%d,%.6f",
+                    totalPmuVolume, totalPmuTransfers, avgPmuDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // GNB Layer Total
+            double totalGnbVolume = dataVolumeGNB.values().stream().mapToDouble(Double::doubleValue).sum();
+            int totalGnbTransfers = transferCountGNB.values().stream().mapToInt(Integer::intValue).sum();
+            if (totalGnbTransfers > 0) {
+                double avgGnbDataSize = totalGnbVolume / totalGnbTransfers;
+                String csvRecord = String.format("GNB_LAYER_TOTAL,%.6f,%d,%.6f",
+                    totalGnbVolume, totalGnbTransfers, avgGnbDataSize);
                 networkUsageCsvRecords.add(csvRecord);
             }
             

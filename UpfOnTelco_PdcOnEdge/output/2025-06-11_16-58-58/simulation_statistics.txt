@@ -1,0 +1,137 @@
+
+=== PMU SMART GRID SIMULATION STATISTICS ===
+Date: 2025-06-11 16:59:53
+Simulation Folder: 2025-06-11_16-58-58
+
+PMU CONFIGURATION:
+- Total PMUs: 30
+- Simulation Area: 2000m x 2000m
+- Edge Coverage: 800.0m
+
+
+=== PMU DATA TRANSFER STATISTICS ===
+
+DATA SIZE STATISTICS:
+- Average Data Size: 2.00 KB
+- Minimum Data Size: 2.00 KB
+- Maximum Data Size: 2.00 KB
+- Standard Deviation: 0.00 KB
+- Total Data Volume: 6678.00 KB
+
+AVERAGE HOP DELAY AND DISTANCE (PMU → GNB):
+- Average Hop Delay: 0.0070s
+- Average Distance: 316.1m
+- Total PMU-GNB Connections: 30
+
+
+PMU DATA MISSED DEADLINE SUMMARY:
+- PMU Data that Missed Deadline: 467/3339 (13.99%)
+
+DETAILED TRANSFERS PER PMU:
+  PMU_00 → GNB_5: 92/111 transfers on time (82.9%) - avg transfer delay: 0.0354s
+  PMU_01 → GNB_2: 88/112 transfers on time (78.6%) - avg transfer delay: 0.0356s
+  PMU_02 → GNB_5: 98/112 transfers on time (87.5%) - avg transfer delay: 0.0333s
+  PMU_03 → GNB_5: 93/112 transfers on time (83.0%) - avg transfer delay: 0.0347s
+  PMU_04 → GNB_4: 93/112 transfers on time (83.0%) - avg transfer delay: 0.0333s
+  PMU_05 → GNB_5: 100/112 transfers on time (89.3%) - avg transfer delay: 0.0336s
+  PMU_06 → GNB_5: 84/112 transfers on time (75.0%) - avg transfer delay: 0.0363s
+  PMU_07 → GNB_1: 99/112 transfers on time (88.4%) - avg transfer delay: 0.0328s
+  PMU_08 → GNB_4: 97/112 transfers on time (86.6%) - avg transfer delay: 0.0314s
+  PMU_09 → GNB_1: 97/112 transfers on time (86.6%) - avg transfer delay: 0.0353s
+  PMU_10 → GNB_1: 92/111 transfers on time (82.9%) - avg transfer delay: 0.0350s
+  PMU_11 → GNB_4: 100/111 transfers on time (90.1%) - avg transfer delay: 0.0311s
+  PMU_12 → GNB_4: 99/111 transfers on time (89.2%) - avg transfer delay: 0.0322s
+  PMU_13 → GNB_6: 102/111 transfers on time (91.9%) - avg transfer delay: 0.0322s
+  PMU_14 → GNB_1: 98/111 transfers on time (88.3%) - avg transfer delay: 0.0339s
+  PMU_15 → GNB_2: 100/111 transfers on time (90.1%) - avg transfer delay: 0.0328s
+  PMU_16 → GNB_3: 109/111 transfers on time (98.2%) - avg transfer delay: 0.0282s
+  PMU_17 → GNB_6: 106/111 transfers on time (95.5%) - avg transfer delay: 0.0322s
+  PMU_18 → GNB_3: 106/111 transfers on time (95.5%) - avg transfer delay: 0.0294s
+  PMU_19 → GNB_1: 83/111 transfers on time (74.8%) - avg transfer delay: 0.0365s
+  PMU_20 → GNB_2: 89/111 transfers on time (80.2%) - avg transfer delay: 0.0349s
+  PMU_21 → GNB_6: 92/111 transfers on time (82.9%) - avg transfer delay: 0.0353s
+  PMU_22 → GNB_6: 94/111 transfers on time (84.7%) - avg transfer delay: 0.0347s
+  PMU_23 → GNB_1: 94/111 transfers on time (84.7%) - avg transfer delay: 0.0341s
+  PMU_24 → GNB_3: 92/111 transfers on time (82.9%) - avg transfer delay: 0.0332s
+  PMU_25 → GNB_5: 90/111 transfers on time (81.1%) - avg transfer delay: 0.0358s
+  PMU_26 → GNB_2: 104/111 transfers on time (93.7%) - avg transfer delay: 0.0323s
+  PMU_27 → GNB_6: 100/111 transfers on time (90.1%) - avg transfer delay: 0.0336s
+  PMU_28 → GNB_2: 83/111 transfers on time (74.8%) - avg transfer delay: 0.0366s
+  PMU_29 → GNB_2: 98/111 transfers on time (88.3%) - avg transfer delay: 0.0335s
+
+GNB SUMMARY LOGS:
+  GNB_1: 563/668 transfers on time (84.3%) from 6 PMUs - avg PDC waiting time: 0.0144s - avg TotalTime: 0.0536s
+  GNB_2: 562/667 transfers on time (84.3%) from 6 PMUs - avg PDC waiting time: 0.0140s - avg TotalTime: 0.0529s
+  GNB_3: 307/333 transfers on time (92.2%) from 3 PMUs - avg PDC waiting time: 0.0100s - avg TotalTime: 0.0476s
+  GNB_4: 389/446 transfers on time (87.2%) from 4 PMUs - avg PDC waiting time: 0.0128s - avg TotalTime: 0.0504s
+  GNB_5: 557/670 transfers on time (83.1%) from 6 PMUs - avg PDC waiting time: 0.0143s - avg TotalTime: 0.0533s
+  GNB_6: 494/555 transfers on time (89.0%) from 5 PMUs - avg PDC waiting time: 0.0133s - avg TotalTime: 0.0526s
+
+=== GRID ANALYSIS TASK STATISTICS ===
+
+GRID ANALYSIS TASK COMPLETION:
+- Total Tasks: 670
+- Successful: 670
+- Failed: 0
+- Success Rate: 100.00%
+
+EXECUTION TIME (Successful tasks only):
+- Average: 0.0125s
+- Minimum: 0.0125s
+- Maximum: 0.0125s
+- Standard Deviation: 0.0000s
+
+PDC WAITING TIME (All tasks):
+- Average: 0.0132s
+- Minimum: 0.0015s
+- Maximum: 0.0155s
+- Standard Deviation: 0.0033s
+
+TOTAL PROCESSING TIME (All tasks):
+- Average: 0.0517s
+- Minimum: 0.0382s
+- Maximum: 0.0652s
+- Standard Deviation: 0.0041s
+
+BATCH INFORMATION:
+- Complete Batches: 331
+- Timeout Batches: 339
+- Complete Batch Rate: 49.40%
+- Average PDC Waiting Time: 0.0132s
+
+
+=== NETWORK INFRASTRUCTURE LAYER STATISTICS ===
+
+CELLULAR NETWORK (PMU → GNB):
+- Main Data Volume: 6678.00 KB
+- Control Data Volume: 2.00 KB  
+- Total Data Volume: 6680.00 KB
+- Control Data Percentage: 0.0%
+
+GNB NETWORK (Inter-GNB & GNB-TELCO):
+- Main Data Volume: 13356.00 KB
+- Control Data Volume: 4.00 KB
+- Total Data Volume: 13360.00 KB  
+- Control Data Percentage: 0.0%
+
+TELCO NETWORK (Data Routing):
+- Main Data Volume: 13356.00 KB
+- Control Data Volume: 2.00 KB
+- Total Data Volume: 13358.00 KB
+- Control Data Percentage: 0.0%
+
+TSO NETWORK (Minimal Control):
+- Main Data Volume: 0.00 KB
+- Control Data Volume: 0.20 KB
+- Total Data Volume: 0.20 KB
+- Control Data Percentage: 100.0%
+
+NETWORK LAYER SUMMARY:
+- Total Network Data Volume: 33398.20 KB
+- Total Control Data Volume: 8.20 KB
+- Overall Control Data Percentage: 0.0%
+
+
+========================================
+Analysis completed: 2025-06-11 16:59:53
+========================================

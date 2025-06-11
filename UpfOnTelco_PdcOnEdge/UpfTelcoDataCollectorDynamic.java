@@ -280,6 +280,13 @@ public class UpfTelcoDataCollectorDynamic extends SimEntity {
                     UpfTelcoLogger.getInstance().trackNetworkVolume("GNB_to_TELCO", UPFTELCO_DATA_SIZE_KB);
                     UpfTelcoLogger.getInstance().trackNetworkVolume("TELCO_to_GNB", UPFTELCO_DATA_SIZE_KB);
                     
+                    // **NEW: Track individual PMU and GNB data volumes**
+                    String pmuId = "PMU_" + taskWithTime.upfTelcoId;
+                    String currentGnbId = "GNB_" + gnbId;
+                    UpfTelcoLogger.getInstance().trackPmuDataGeneration(pmuId, UPFTELCO_DATA_SIZE_KB);
+                    UpfTelcoLogger.getInstance().trackGnbDataArrival(currentGnbId, UPFTELCO_DATA_SIZE_KB);
+                    UpfTelcoLogger.getInstance().trackTelcoDataArrival(UPFTELCO_DATA_SIZE_KB);
+                    
                     System.out.printf("UpfTelcoDataCollectorDynamic - GNB_%s: ON-TIME PMU_%d at %.4f (deadline: %.4f, margin: %.4fs)%n", 
                                      gnbId, taskWithTime.upfTelcoId, taskWithTime.realArrivalTime, deadline, 
                                      deadline - taskWithTime.realArrivalTime);
@@ -296,6 +303,13 @@ public class UpfTelcoDataCollectorDynamic extends SimEntity {
                     UpfTelcoLogger.getInstance().trackNetworkVolume("PMU_to_GNB", UPFTELCO_DATA_SIZE_KB);
                     UpfTelcoLogger.getInstance().trackNetworkVolume("GNB_to_TELCO", UPFTELCO_DATA_SIZE_KB);
                     UpfTelcoLogger.getInstance().trackNetworkVolume("TELCO_to_GNB", UPFTELCO_DATA_SIZE_KB);
+                    
+                    // **NEW: Track individual PMU and GNB data volumes (even for late arrivals)**
+                    String pmuId = "PMU_" + taskWithTime.upfTelcoId;
+                    String currentGnbId = "GNB_" + gnbId;
+                    UpfTelcoLogger.getInstance().trackPmuDataGeneration(pmuId, UPFTELCO_DATA_SIZE_KB);
+                    UpfTelcoLogger.getInstance().trackGnbDataArrival(currentGnbId, UPFTELCO_DATA_SIZE_KB);
+                    UpfTelcoLogger.getInstance().trackTelcoDataArrival(UPFTELCO_DATA_SIZE_KB);
                     
                     System.out.printf("UpfTelcoDataCollectorDynamic - GNB_%s: LATE PMU_%d at %.4f (deadline: %.4f, late by: %.4fs) - REJECTED%n", 
                                      gnbId, taskWithTime.upfTelcoId, taskWithTime.realArrivalTime, deadline, 
@@ -425,6 +439,9 @@ public class UpfTelcoDataCollectorDynamic extends SimEntity {
             // **NEW: Track State Estimation task data volume**
             UpfTelcoLogger.getInstance().trackNetworkVolume("StateEstimation_Input", totalDataKB);
             UpfTelcoLogger.getInstance().trackNetworkVolume("StateEstimation_Output", GRID_ANALYSIS_OUTPUT_SIZE_KB);
+            
+            // **NEW: Track TSO data arrival (Grid Analysis results go to TSO)**
+            UpfTelcoLogger.getInstance().trackTsoDataArrival(GRID_ANALYSIS_OUTPUT_SIZE_KB);
             
             // **EXECUTE the grid analysis task immediately**
             scheduleNow(simulationManager, com.mechalikh.pureedgesim.simulationmanager.SimulationManager.SEND_TO_ORCH, analysisTask);
