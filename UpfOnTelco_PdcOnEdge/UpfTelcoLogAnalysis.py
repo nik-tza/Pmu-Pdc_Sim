@@ -823,43 +823,56 @@ def generate_network_usage_charts(simulation_folder: str, logger: logging.Logger
                 ax2.text(i, total + total*0.02, f'{total:.1f} KB', 
                         ha='center', va='bottom', fontsize=9, fontweight='bold')
         
-        # Chart 3: Average Data Size per Flow Step (bottom left)
+        # Chart 3: GNB Data Volume Distribution (bottom left)
         if not df_network.empty:
-            # Get average data sizes in proper order + TSO
-            ordered_avg_sizes = []
-            control_avg_sizes = []
+            # Extract GNB data volumes from CSV
+            gnb_names = []
+            gnb_volumes = []
             
-            for level in ordered_levels:
-                if level in df_network['NetworkLevel'].values:
-                    avg_size = df_network[df_network['NetworkLevel'] == level]['AverageDataSizeKB'].iloc[0]
-                    ordered_avg_sizes.append(avg_size)
-                    control_avg_sizes.append(avg_size * 0.03)  # 3% control overhead of average size
-                else:
-                    ordered_avg_sizes.append(0)
-                    control_avg_sizes.append(0)
+            # Find all GNB entries in the CSV
+            for _, row in df_network.iterrows():
+                level = row['NetworkLevel']
+                if level.startswith('GNB_'):
+                    gnb_names.append(level)
+                    gnb_volumes.append(row['TotalDataVolumeKB'])
             
-            # Add TSO with only control data (very small)
-            ordered_avg_sizes.append(0)  # No main data for TSO
-            control_avg_sizes.append(TSO_CONTROL_SIZE)  # Very small control overhead for TSO
-            
-            # Create stacked bars for average sizes
-            bars3_main = ax3.bar(labels, ordered_avg_sizes, color=extended_colors[:len(labels)], label='Main Data')
-            bars3_control = ax3.bar(labels, control_avg_sizes, bottom=ordered_avg_sizes,
-                                  color=extended_dark_colors[:len(labels)], 
-                                  label='Control Overhead', alpha=0.8)
-            
-            ax3.set_title('Average Data Size per Flow Step', fontweight='bold')
-            ax3.set_xlabel('Data Flow Step')
-            ax3.set_ylabel('Average Data Size (KB)')
-            ax3.grid(True, alpha=0.3)
-            ax3.legend(loc='upper right', fontsize=8)
-            
-            # Add total value labels
-            for i, (main_size, ctrl_size) in enumerate(zip(ordered_avg_sizes, control_avg_sizes)):
-                total = main_size + ctrl_size
-                if total > 0:
-                    ax3.text(i, total + total*0.02, f'{total:.2f} KB', 
-                            ha='center', va='bottom', fontsize=9, fontweight='bold')
+            # Sort by GNB number for consistent ordering
+            if gnb_names and gnb_volumes:
+                # Extract GNB numbers for sorting
+                gnb_data = list(zip(gnb_names, gnb_volumes))
+                gnb_data.sort(key=lambda x: int(x[0].split('_')[1]) if x[0].split('_')[1].isdigit() else 999)
+                gnb_names, gnb_volumes = zip(*gnb_data)
+                gnb_names = list(gnb_names)
+                gnb_volumes = list(gnb_volumes)
+                
+                # Create color scheme for GNBs (different shades of blue/green)
+                gnb_colors = plt.cm.Set3(np.linspace(0, 1, len(gnb_names)))
+                
+                # Create bar chart for GNB data volumes
+                bars3 = ax3.bar(gnb_names, gnb_volumes, color=gnb_colors)
+                
+                ax3.set_title('GNB Data Volume Distribution', fontweight='bold')
+                ax3.set_xlabel('GNB ID')
+                ax3.set_ylabel('Total Data Volume (KB)')
+                ax3.grid(True, alpha=0.3)
+                
+                # Add value labels on top of bars
+                for bar, volume in zip(bars3, gnb_volumes):
+                    height = bar.get_height()
+                    ax3.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                            f'{volume:.0f} KB', ha='center', va='bottom', 
+                            fontsize=9, fontweight='bold')
+                
+                # Rotate x-axis labels if too many GNBs
+                if len(gnb_names) > 6:
+                    ax3.tick_params(axis='x', rotation=45)
+            else:
+                # No GNB data found - show empty chart with message
+                ax3.text(0.5, 0.5, 'No GNB Data Found', ha='center', va='center', 
+                        transform=ax3.transAxes, fontsize=12, color='gray')
+                ax3.set_title('GNB Data Volume Distribution', fontweight='bold')
+                ax3.set_xlabel('GNB ID')
+                ax3.set_ylabel('Total Data Volume (KB)')
         
         # Chart 4: Network Infrastructure Distribution Pie Chart (bottom right)
         if not df_network.empty:
@@ -1224,22 +1237,13 @@ WARNING: Grid Analysis CSV file not found
             import pandas as pd
             df_network = pd.read_csv(network_csv)
             
-            # Fixed control data size for all layers
-            CONTROL_DATA_SIZE = 2.0  # KB - fixed control overhead per layer
-            TSO_CONTROL_SIZE = 0.2   # KB - very small control data for TSO
+            # Initialize data volume counters for each network layer
+            cellular_data = 0.0  # CELLULAR NETWORK (PMU → GNB)
+            gnb_data = 0.0       # GNB NETWORK 
+            telco_data = 0.0     # TELCO NETWORK
+            tso_data = 0.0       # TSO NETWORK
             
-            # Calculate infrastructure layer totals
-            cellular_data = 0
-            gnb_data = 0 
-            telco_data = 0  # TELCO has no data flow (only control)
-            tso_data = 0    # TSO has no main data, only control
-            
-            # Fixed control data for each layer
-            cellular_control = CONTROL_DATA_SIZE  # Fixed control
-            gnb_control = CONTROL_DATA_SIZE * 2   # GNBs handle 2 connections  
-            telco_control = CONTROL_DATA_SIZE     # Fixed control
-            tso_control = TSO_CONTROL_SIZE        # Very small control for TSO
-            
+            # Read actual data volumes from CSV
             for _, row in df_network.iterrows():
                 level = row['NetworkLevel']
                 volume = row['TotalDataVolumeKB']
@@ -1248,13 +1252,27 @@ WARNING: Grid Analysis CSV file not found
                 if level.startswith('StateEstimation_'):
                     continue  # Skip processing data from infrastructure calculations
                 
+                # Map network levels to infrastructure layers based on CSV data
                 if level == 'PMU_to_GNB':
                     cellular_data += volume
                 elif level in ['GNB_to_TELCO', 'TELCO_to_GNB']:
                     gnb_data += volume
-                    # **FIXED: TELCO network also handles the same data that passes through it**
-                    telco_data += volume
-                # TSO gets no data - nothing goes there directly
+                    telco_data += volume  # TELCO handles the same data that passes through it
+                elif level == 'TSO':
+                    tso_data += volume
+                # Look for individual device data (PMU_#, GNB_#, TSO)
+                elif level.startswith('PMU_'):
+                    cellular_data += volume
+                elif level.startswith('GNB_'):
+                    gnb_data += volume
+                elif level == 'TSO':
+                    tso_data += volume
+            
+            # Calculate control data as 3% of data volume for each layer
+            cellular_control = cellular_data * 0.03  # 3% control overhead
+            gnb_control = gnb_data * 0.03           # 3% control overhead  
+            telco_control = telco_data * 0.03       # 3% control overhead
+            tso_control = tso_data * 0.03           # 3% control overhead
             
             # Calculate totals including control data
             cellular_total = cellular_data + cellular_control
@@ -1266,33 +1284,24 @@ WARNING: Grid Analysis CSV file not found
 === NETWORK INFRASTRUCTURE LAYER STATISTICS ===
 
 CELLULAR NETWORK (PMU → GNB):
-- Main Data Volume: {cellular_data:.2f} KB
+- Data Volume: {cellular_data:.2f} KB
 - Control Data Volume: {cellular_control:.2f} KB  
 - Total Data Volume: {cellular_total:.2f} KB
-- Control Data Percentage: {(cellular_control/cellular_total)*100 if cellular_total > 0 else 0:.1f}%
 
-GNB NETWORK (Inter-GNB & GNB-TELCO):
-- Main Data Volume: {gnb_data:.2f} KB
+GNB NETWORK:
+- Data Volume: {gnb_data:.2f} KB
 - Control Data Volume: {gnb_control:.2f} KB
-- Total Data Volume: {gnb_total:.2f} KB  
-- Control Data Percentage: {(gnb_control/gnb_total)*100 if gnb_total > 0 else 0:.1f}%
+- Total Data Volume: {gnb_total:.2f} KB
 
-TELCO NETWORK (Data Routing):
-- Main Data Volume: {telco_data:.2f} KB
+TELCO NETWORK:
+- Data Volume: {telco_data:.2f} KB
 - Control Data Volume: {telco_control:.2f} KB
 - Total Data Volume: {telco_total:.2f} KB
-- Control Data Percentage: {(telco_control/telco_total)*100 if telco_total > 0 else 0:.1f}%
 
-TSO NETWORK (Minimal Control):
-- Main Data Volume: {tso_data:.2f} KB
+TSO NETWORK:
+- Data Volume: {tso_data:.2f} KB
 - Control Data Volume: {tso_control:.2f} KB
 - Total Data Volume: {tso_total:.2f} KB
-- Control Data Percentage: {(tso_control/tso_total)*100 if tso_total > 0 else 0:.1f}%
-
-NETWORK LAYER SUMMARY:
-- Total Network Data Volume: {cellular_total + gnb_total + telco_total + tso_total:.2f} KB
-- Total Control Data Volume: {cellular_control + gnb_control + telco_control + tso_control:.2f} KB
-- Overall Control Data Percentage: {((cellular_control + gnb_control + telco_control + tso_control)/(cellular_total + gnb_total + telco_total + tso_total))*100 if (cellular_total + gnb_total + telco_total + tso_total) > 0 else 0:.1f}%
 
 """
         except Exception as e:
