@@ -24,7 +24,7 @@ public class EdgeDataCollectorDynamic extends SimEntity {
     
     // Collection parameters  
     private final int REQUIRED_EDGE_COUNT; // PMUs assigned to this GNB
-    private static final double MAX_WAITING_LATENCY =  0.045; // **max waiting for late Edge data**
+    private static final double MAX_WAITING_LATENCY =  0.0150; // **max waiting for late Edge data**
     
     // **NEW: GNB-specific properties**
     private final ComputingNode assignedGnb; // The GNB this collector belongs to
@@ -35,7 +35,7 @@ public class EdgeDataCollectorDynamic extends SimEntity {
     private static final double EDGE_DATA_SIZE_BITS = EDGE_DATA_SIZE_KB * 8192.0;
     
     // **State Estimation Task Parameters**
-    private static final long GRID_ANALYSIS_LENGTH_MI = 15000; // 15,000 MI for complex grid analysis
+    private static final long GRID_ANALYSIS_LENGTH_MI = 1000; // 15,000 MI for complex grid analysis
     private static final double GRID_ANALYSIS_MAX_LATENCY = 2.0; // 2 seconds max latency
     private static final long GRID_ANALYSIS_OUTPUT_SIZE_KB = 50; // 50KB analysis result
     private static final long GRID_ANALYSIS_CONTAINER_SIZE_MB = 100; // 100MB container
@@ -268,6 +268,11 @@ public class EdgeDataCollectorDynamic extends SimEntity {
                 if (taskWithTime.realArrivalTime <= deadline) {
                     onTimeTasks.add(taskWithTime);
                     
+                    // **NEW: Track network usage for on-time transfers**
+                    EdgeLogger.getInstance().trackPmuDataGeneration(taskWithTime.edgeId, EDGE_DATA_SIZE_KB);
+                    EdgeLogger.getInstance().trackGnbDataArrival(gnbId, EDGE_DATA_SIZE_KB);
+                    EdgeLogger.getInstance().trackPmuToGnbTransfer(EDGE_DATA_SIZE_KB);
+                    
                     // **Log on-time data transfer**
                     EdgeLogger.getInstance().logEdgeDataTransferFull(
                         taskWithTime.task, taskWithTime.edgeId, EDGE_DATA_SIZE_KB, 
@@ -279,6 +284,11 @@ public class EdgeDataCollectorDynamic extends SimEntity {
                 } else {
                     droppedTasks++;
                     droppedLateArrivals++;
+                    
+                    // **NEW: Track network usage for late arrivals (still counts as data volume)**
+                    EdgeLogger.getInstance().trackPmuDataGeneration(taskWithTime.edgeId, EDGE_DATA_SIZE_KB);
+                    EdgeLogger.getInstance().trackGnbDataArrival(gnbId, EDGE_DATA_SIZE_KB);
+                    EdgeLogger.getInstance().trackPmuToGnbTransfer(EDGE_DATA_SIZE_KB);
                     
                     // **Log late data transfer**
                     EdgeLogger.getInstance().logEdgeDataTransferFull(
@@ -396,6 +406,10 @@ public class EdgeDataCollectorDynamic extends SimEntity {
                 analysisTask, (int)(generationTime * 1000), onTimeTasks.size(), REQUIRED_EDGE_COUNT, 
                 pdcWaitingTime, totalDataKB, batchType
             );
+            
+            // **Store first data network delay for custom total time calculation**
+            double firstDataNetworkDelay = onTimeTasks.get(0).networkDelay;
+            EdgeLogger.getInstance().storeFirstDataNetworkDelay(newTaskId, firstDataNetworkDelay);
             
             // Log data collection completion
             EdgeLogger.getInstance().logDataCollectionComplete(generationTime, onTimeTasks.size(), isComplete);

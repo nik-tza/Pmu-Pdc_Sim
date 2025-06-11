@@ -620,11 +620,250 @@ def analyze_pmu_simulation(output_folder: str):
         # **NEW: Export statistics to CSV format**
         export_statistics_to_csv(simulation_folder, logger)
         
+        # **NEW: Generate network usage charts**
+        generate_network_usage_charts(simulation_folder, logger)
+        
         logger.info("=== PMU Analysis Complete ===")
         
     except Exception as e:
         logger.error(f"Error during PMU analysis: {str(e)}")
         raise
+
+def generate_network_usage_charts(simulation_folder: str, logger: logging.Logger):
+    """Generate network bandwidth usage charts from network usage CSV - EXACT COPY of scenario 2"""
+    logger.info("Generating network bandwidth usage charts...")
+    
+    try:
+        # Look for network usage CSV file
+        network_csv = None
+        for file in os.listdir(simulation_folder):
+            if file.endswith("_network_usage.csv") or file == "Sequential_simulation_network_usage.csv" or file == "Sequential_simulation_pmu_network_usage.csv":
+                network_csv = os.path.join(simulation_folder, file)
+                break
+        
+        if not network_csv or not os.path.exists(network_csv):
+            print("⚠️  Network usage CSV not found - skipping network charts")
+            return
+        
+        print(f"📊 Found network usage CSV: {network_csv}")
+        
+        # Read network usage data
+        import pandas as pd
+        df_network = pd.read_csv(network_csv)
+        
+        # Create network usage charts
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+        fig.suptitle('Network Bandwidth Usage Analysis', fontsize=16, fontweight='bold')
+        
+        # Define order of data flow and colors - SCENARIO 3 SPECIFIC
+        ordered_levels = ['PMU_to_GNB', 'GNB_to_TELCO', 'TELCO_to_TSO']  # PMU→GNB→TELCO→TSO flow
+        level_colors = ['blue', 'lightcoral', 'orange']  # Colors for each flow step
+        
+        # Chart 1: Data Flow Sequence with Control Data (top left) - SCENARIO 3 ADAPTED
+        if not df_network.empty:
+            # Get data in proper order
+            ordered_volumes = []
+            control_data = []  # Control data for each layer
+            labels = []
+            
+            # Fixed control data size for all layers (constant overhead)
+            CONTROL_DATA_SIZE = 2.0  # KB - fixed control overhead per layer
+            
+            # Process each flow step for scenario 3
+            for level in ordered_levels:
+                if level in df_network['NetworkLevel'].values:
+                    volume = df_network[df_network['NetworkLevel'] == level]['TotalDataVolumeKB'].iloc[0]
+                    ordered_volumes.append(volume)
+                else:
+                    ordered_volumes.append(0)  # No data, only control
+                
+                control_data.append(CONTROL_DATA_SIZE)  # All levels have control data
+                
+                # Create readable labels
+                if level == 'PMU_to_GNB':
+                    labels.append('PMU→GNB')
+                elif level == 'GNB_to_TELCO':
+                    labels.append('GNB→TELCO')
+                elif level == 'TELCO_to_TSO':
+                    labels.append('TELCO→TSO')
+                else:
+                    labels.append(level.replace('_', ' '))
+            
+            # Create stacked bars with control data
+            extended_colors = ['blue', 'lightcoral', 'orange']  # Colors for PMU→GNB, GNB→TELCO, TELCO→TSO
+            extended_dark_colors = ['darkblue', 'darkred', 'darkorange']  # Darker colors for control data
+            
+            bars1_main = ax1.bar(labels, ordered_volumes, color=extended_colors[:len(labels)], label='Main Data')
+            bars1_control = ax1.bar(labels, control_data, bottom=ordered_volumes, 
+                                  color=extended_dark_colors[:len(labels)], 
+                                  label='Control Data', alpha=0.8)
+            
+            ax1.set_title('Data Flow Sequence (PMU→GNB→TELCO→TSO)', fontweight='bold')
+            ax1.set_xlabel('Data Flow Step')
+            ax1.set_ylabel('Data Volume (KB)')
+            ax1.grid(True, alpha=0.3)
+            ax1.legend(loc='upper right', fontsize=8)
+            
+            # Add total value labels on top of bars
+            for i, (main_vol, ctrl_vol) in enumerate(zip(ordered_volumes, control_data)):
+                total = main_vol + ctrl_vol
+                if total > 0:
+                    ax1.text(i, total + total*0.02, f'{total:.1f} KB', 
+                            ha='center', va='bottom', fontsize=9, fontweight='bold')
+        
+        # Chart 2: Network Layer Data Distribution (top right) - EXACT same structure as scenario 2
+        # Map data to network infrastructure layers
+        layer_data = {
+            'Cellular': 0,  # PMU to GNB
+            'GNBs': 0,      # GNB processing
+            'TELCO': 0,     # TELCO processing (0 in scenario 3)
+            'TSO': 0        # TSO (only control data, 0 in scenario 3)
+        }
+        layer_control = {
+            'Cellular': CONTROL_DATA_SIZE,  # Fixed control data
+            'GNBs': CONTROL_DATA_SIZE,      # Only PMU→GNB in scenario 3 (not 2 connections)
+            'TELCO': CONTROL_DATA_SIZE,     # TELCO has control data even if no main data
+            'TSO': CONTROL_DATA_SIZE        # TSO has control data even if no main data
+        }
+        
+        if not df_network.empty:
+            for _, row in df_network.iterrows():
+                level = row['NetworkLevel']
+                volume = row['TotalDataVolumeKB']
+                
+                # **FILTER: Only include network transport data, not processing data**
+                if level.startswith('StateEstimation_'):
+                    continue  # Skip processing data from infrastructure calculations
+                
+                if level == 'PMU_to_GNB':
+                    layer_data['Cellular'] += volume
+                    layer_data['GNBs'] += volume  # GNBs handle PMU data in scenario 3
+                # No GNB→TELCO or TELCO→GNB in scenario 3
+                # TSO gets no data - nothing goes there directly
+        
+        layer_names = list(layer_data.keys())
+        layer_volumes = list(layer_data.values())
+        layer_ctrl_volumes = list(layer_control.values())
+        layer_colors_infra = ['blue', 'lightcoral', 'orange', 'gray']
+        layer_ctrl_colors = ['darkblue', 'darkred', 'darkorange', 'darkgray']
+        
+        bars2_main = ax2.bar(layer_names, layer_volumes, color=layer_colors_infra, label='Data Traffic')
+        bars2_control = ax2.bar(layer_names, layer_ctrl_volumes, bottom=layer_volumes, 
+                              color=layer_ctrl_colors, label='Control Data', alpha=0.8)
+        
+        ax2.set_title('Network Infrastructure Data Distribution', fontweight='bold')
+        ax2.set_xlabel('Network Layer')
+        ax2.set_ylabel('Data Volume (KB)')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(loc='upper right', fontsize=8)
+        
+        # Add total value labels
+        for i, (main_vol, ctrl_vol) in enumerate(zip(layer_volumes, layer_ctrl_volumes)):
+            total = main_vol + ctrl_vol
+            if total > 0:
+                ax2.text(i, total + total*0.02, f'{total:.1f} KB', 
+                        ha='center', va='bottom', fontsize=9, fontweight='bold')
+        
+        # Chart 3: GNB Data Volume Distribution (bottom left) - EXACT same as scenario 2
+        if not df_network.empty:
+            # Extract GNB data volumes from CSV
+            gnb_names = []
+            gnb_volumes = []
+            
+            # Find all GNB entries in the CSV
+            for _, row in df_network.iterrows():
+                level = row['NetworkLevel']
+                if level.startswith('GNB_') and not 'LAYER_TOTAL' in level:
+                    gnb_names.append(level)
+                    gnb_volumes.append(row['TotalDataVolumeKB'])
+            
+            # Sort by GNB number for consistent ordering
+            if gnb_names and gnb_volumes:
+                # Extract GNB numbers for sorting
+                gnb_data = list(zip(gnb_names, gnb_volumes))
+                gnb_data.sort(key=lambda x: int(x[0].split('_')[1]) if x[0].split('_')[1].isdigit() else 999)
+                gnb_names, gnb_volumes = zip(*gnb_data)
+                gnb_names = list(gnb_names)
+                gnb_volumes = list(gnb_volumes)
+                
+                # Create color scheme for GNBs (different shades of blue/green)
+                gnb_colors = plt.cm.Set3(np.linspace(0, 1, len(gnb_names)))
+                
+                # Create bar chart for GNB data volumes
+                bars3 = ax3.bar(gnb_names, gnb_volumes, color=gnb_colors)
+                
+                ax3.set_title('GNB Data Volume Distribution', fontweight='bold')
+                ax3.set_xlabel('GNB ID')
+                ax3.set_ylabel('Total Data Volume (KB)')
+                ax3.grid(True, alpha=0.3)
+                
+                # Add value labels on top of bars - WITH "KB" like scenario 2
+                for bar, volume in zip(bars3, gnb_volumes):
+                    height = bar.get_height()
+                    ax3.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                            f'{volume:.0f} KB', ha='center', va='bottom', 
+                            fontsize=9, fontweight='bold')
+                
+                # Rotate x-axis labels if too many GNBs
+                if len(gnb_names) > 6:
+                    ax3.tick_params(axis='x', rotation=45)
+            else:
+                # No GNB data found - show empty chart with message
+                ax3.text(0.5, 0.5, 'No GNB Data Found', ha='center', va='center', 
+                        transform=ax3.transAxes, fontsize=12, color='gray')
+                ax3.set_title('GNB Data Volume Distribution', fontweight='bold')
+                ax3.set_xlabel('GNB ID')
+                ax3.set_ylabel('Total Data Volume (KB)')
+        
+        # Chart 4: Network Infrastructure Distribution Pie Chart (bottom right) - EXACT same as scenario 2
+        if not df_network.empty:
+            # Use infrastructure layer data for pie chart
+            pie_labels = []
+            pie_sizes = []
+            pie_colors = []
+            
+            for layer, volume in layer_data.items():
+                total_volume = volume + layer_control[layer]  # Include control data
+                if total_volume > 0.1:  # Filter very small values
+                    pie_labels.append(layer)
+                    pie_sizes.append(total_volume)
+                    if layer == 'Cellular':
+                        pie_colors.append('blue')
+                    elif layer == 'GNBs':
+                        pie_colors.append('lightcoral')
+                    elif layer == 'TELCO':
+                        pie_colors.append('orange')
+                    elif layer == 'TSO':
+                        pie_colors.append('gray')
+            
+            if pie_sizes:
+                wedges, texts, autotexts = ax4.pie(pie_sizes, labels=pie_labels, colors=pie_colors, 
+                                                 autopct='%1.1f%%', startangle=90)
+                ax4.set_title('Network Infrastructure Usage Distribution', fontweight='bold')
+                
+                # Improve text visibility
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_fontweight('bold')
+        
+        # Adjust layout to prevent overlap
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.93)  # Make room for suptitle
+        
+        # Save the chart
+        chart_file = os.path.join(simulation_folder, "network_usage_analysis.png")
+        plt.savefig(chart_file, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"📊 Network usage charts saved to: {chart_file}")
+        logger.info(f"Network usage charts saved to: {chart_file}")
+        
+        return chart_file
+        
+    except Exception as e:
+        print(f"❌ Error creating network usage charts: {e}")
+        logger.error(f"Error creating network usage charts: {e}")
+        return None
 
 def generate_comprehensive_statistics(simulation_folder: str, logger: logging.Logger):
     """Generate comprehensive statistics file combining PMU data and Grid Analysis analysis."""
@@ -716,8 +955,9 @@ PMU DATA MISSED DEADLINE SUMMARY:
 
 DETAILED TRANSFERS PER PMU:"""
                 
-                # **Read PDC Waiting Times from state estimation CSV**
+                # **Read PDC Waiting Times and Total Times from state estimation CSV**
                 gnb_pdc_waiting_times = {}
+                gnb_total_times = {}
                 state_csv = None
                 for file in os.listdir(simulation_folder):
                     if file.endswith("_state_estimation.csv") or file == "Sequential_simulation_state_estimation.csv":
@@ -728,12 +968,14 @@ DETAILED TRANSFERS PER PMU:"""
                     import pandas as pd
                     df_state = pd.read_csv(state_csv)
                     
-                    # Group by GNBID and calculate average PDCWaitingTime
+                    # Group by GNBID and calculate average PDCWaitingTime and TotalTime
                     for gnb_id in df_state['GNBID'].unique():
                         gnb_rows = df_state[df_state['GNBID'] == gnb_id]
                         avg_pdc_waiting = gnb_rows['PDCWaitingTime'].mean() if 'PDCWaitingTime' in gnb_rows.columns else 0.0
+                        avg_total_time = gnb_rows['TotalTime'].mean() if 'TotalTime' in gnb_rows.columns else 0.0
                         gnb_name = f"GNB_{gnb_id}"
                         gnb_pdc_waiting_times[gnb_name] = avg_pdc_waiting
+                        gnb_total_times[gnb_name] = avg_total_time
                 
                 # **Calculate average transfer delay per PMU from HopSum**
                 pmu_avg_transfer_delay = {}
@@ -807,9 +1049,10 @@ GNB SUMMARY LOGS:"""
                         total_count = stats['total_count']
                         pmu_count = stats['pmu_count']
                         avg_pmu_waiting_time = gnb_pdc_waiting_times.get(gnb, 0.0)
+                        avg_gnb_total_time = gnb_total_times.get(gnb, 0.0)
                         success_rate = (ok_count / total_count) * 100 if total_count > 0 else 0
                         deadline_missed_details += f"""
-  {gnb}: {ok_count}/{total_count} transfers on time ({success_rate:.1f}%) from {pmu_count} PMUs - avg PMU waiting time: {avg_pmu_waiting_time:.4f}s"""
+  {gnb}: {ok_count}/{total_count} transfers on time ({success_rate:.1f}%) from {pmu_count} PMUs - avg PMU waiting time: {avg_pmu_waiting_time:.4f}s - avg TotalTime: {avg_gnb_total_time:.4f}s"""
             
             comprehensive_report += f"""
 === PMU DATA TRANSFER STATISTICS ===
@@ -920,6 +1163,73 @@ WARNING: Grid Analysis CSV file not found
 
 """
     
+    # **SECTION 3: Network Infrastructure Layer Statistics**
+    network_csv = None
+    for file in os.listdir(simulation_folder):
+        if file.endswith("_network_usage.csv") or file == "Sequential_simulation_network_usage.csv" or file == "Sequential_simulation_pmu_network_usage.csv":
+            network_csv = os.path.join(simulation_folder, file)
+            break
+    
+    if network_csv and os.path.exists(network_csv):
+        try:
+            import pandas as pd
+            df_network = pd.read_csv(network_csv)
+            
+            # Get data for different layers (scenario 3 has different architecture)
+            pmu_layer_data = df_network[df_network['NetworkLevel'] == 'PMU_LAYER_TOTAL']['TotalDataVolumeKB'].iloc[0] if 'PMU_LAYER_TOTAL' in df_network['NetworkLevel'].values else 0.0
+            gnb_layer_data = df_network[df_network['NetworkLevel'] == 'GNB_LAYER_TOTAL']['TotalDataVolumeKB'].iloc[0] if 'GNB_LAYER_TOTAL' in df_network['NetworkLevel'].values else 0.0
+            telco_layer_data = 0.0  # Scenario 3 doesn't have TELCO layer
+            tso_layer_data = 0.0    # Scenario 3 doesn't have TSO layer
+            
+            # Calculate control data as 3% of main data volume
+            pmu_control_data = pmu_layer_data * 0.03
+            gnb_control_data = gnb_layer_data * 0.03
+            telco_control_data = 0.0
+            tso_control_data = 0.0
+            
+            # Calculate totals
+            pmu_total = pmu_layer_data + pmu_control_data
+            gnb_total = gnb_layer_data + gnb_control_data
+            telco_total = telco_layer_data + telco_control_data
+            tso_total = tso_layer_data + tso_control_data
+            
+            comprehensive_report += f"""
+=== NETWORK INFRASTRUCTURE LAYER STATISTICS ===
+
+CELLULAR NETWORK (PMU → GNB):
+- Data Volume: {pmu_layer_data:.2f} KB
+- Control Data Volume: {pmu_control_data:.2f} KB  
+- Total Data Volume: {pmu_total:.2f} KB
+
+GNB NETWORK:
+- Data Volume: {gnb_layer_data:.2f} KB
+- Control Data Volume: {gnb_control_data:.2f} KB
+- Total Data Volume: {gnb_total:.2f} KB
+
+TELCO NETWORK:
+- Data Volume: {telco_layer_data:.2f} KB
+- Control Data Volume: {telco_control_data:.2f} KB
+- Total Data Volume: {telco_total:.2f} KB
+
+TSO NETWORK:
+- Data Volume: {tso_layer_data:.2f} KB
+- Control Data Volume: {tso_control_data:.2f} KB
+- Total Data Volume: {tso_total:.2f} KB
+
+"""
+        except Exception as e:
+            comprehensive_report += f"""
+=== NETWORK INFRASTRUCTURE LAYER STATISTICS ===
+ERROR: Could not analyze network infrastructure data: {str(e)}
+
+"""
+    else:
+        comprehensive_report += f"""
+=== NETWORK INFRASTRUCTURE LAYER STATISTICS ===
+WARNING: Network usage CSV file not found
+
+"""
+    
     comprehensive_report += f"""
 ========================================
 Analysis completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -1016,8 +1326,9 @@ def export_statistics_to_csv(simulation_folder: str, logger: logging.Logger):
     # **4. DETAILED TRANSFERS PER PMU**
     csv_data.append(['=== DETAILED TRANSFERS PER PMU ===', ''])
     
-    # **Read PDC Waiting Times from state estimation CSV for CSV export**
+    # **Read PDC Waiting Times and Total Times from state estimation CSV for CSV export**
     gnb_pdc_waiting_times_csv = {}
+    gnb_total_times_csv = {}
     state_csv_export = None
     for file in os.listdir(simulation_folder):
         if file.endswith("_state_estimation.csv") or file == "Sequential_simulation_state_estimation.csv":
@@ -1028,12 +1339,14 @@ def export_statistics_to_csv(simulation_folder: str, logger: logging.Logger):
         import pandas as pd
         df_state_export = pd.read_csv(state_csv_export)
         
-        # Group by GNBID and calculate average PDCWaitingTime
+        # Group by GNBID and calculate average PDCWaitingTime and TotalTime
         for gnb_id in df_state_export['GNBID'].unique():
             gnb_rows = df_state_export[df_state_export['GNBID'] == gnb_id]
             avg_pdc_waiting = gnb_rows['PDCWaitingTime'].mean() if 'PDCWaitingTime' in gnb_rows.columns else 0.0
+            avg_total_time = gnb_rows['TotalTime'].mean() if 'TotalTime' in gnb_rows.columns else 0.0
             gnb_name = f"GNB_{gnb_id}"
             gnb_pdc_waiting_times_csv[gnb_name] = avg_pdc_waiting
+            gnb_total_times_csv[gnb_name] = avg_total_time
     
     # **Calculate average transfer delay per PMU from HopSum for CSV export**
     pmu_avg_transfer_delay_csv = {}
@@ -1107,8 +1420,9 @@ def export_statistics_to_csv(simulation_folder: str, logger: logging.Logger):
             total_count = stats['total_count']
             pmu_count = stats['pmu_count']
             avg_pmu_waiting_time = gnb_pdc_waiting_times_csv.get(gnb, 0.0)
+            avg_gnb_total_time = gnb_total_times_csv.get(gnb, 0.0)
             success_rate = (ok_count / total_count) * 100 if total_count > 0 else 0
-            gnb_detail = f"{ok_count}/{total_count} transfers on time ({success_rate:.1f}%) from {pmu_count} PMUs - avg PMU waiting time: {avg_pmu_waiting_time:.4f}s"
+            gnb_detail = f"{ok_count}/{total_count} transfers on time ({success_rate:.1f}%) from {pmu_count} PMUs - avg PMU waiting time: {avg_pmu_waiting_time:.4f}s - avg TotalTime: {avg_gnb_total_time:.4f}s"
             csv_data.append([gnb, gnb_detail])
     
     csv_data.append(['', ''])  # Empty row
@@ -1199,6 +1513,7 @@ def export_statistics_to_csv(simulation_folder: str, logger: logging.Logger):
                 pmu_delays=pmu_avg_transfer_delay_csv,
                 gnb_stats=gnb_csv_stats,
                 gnb_waiting_times=gnb_pdc_waiting_times_csv,
+                gnb_total_times=gnb_total_times_csv,
                 logger=logger
             )
         
@@ -1209,7 +1524,7 @@ def export_statistics_to_csv(simulation_folder: str, logger: logging.Logger):
         logger.error(f"Error writing CSV file: {e}")
         return None
 
-def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delays: dict, gnb_stats: dict, gnb_waiting_times: dict, logger: logging.Logger):
+def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delays: dict, gnb_stats: dict, gnb_waiting_times: dict, gnb_total_times: dict, logger: logging.Logger):
     """Create 4 performance bar charts: PMU success rates, PMU delays, GNB success rates, GNB waiting times."""
     logger.info("Creating performance charts...")
     
@@ -1297,26 +1612,65 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
                 ax3.text(bar.get_x() + bar.get_width()/2., height + 1,
                         f'{rate:.1f}%', ha='center', va='bottom', fontsize=10)
         
-        # Chart 4: GNB Average PMU Waiting Times (bottom right)
+        # Chart 4: GNB Average Timings (bottom right) - Stacked bar chart
         if gnb_waiting_times:
+            # Read state estimation CSV to get execution times per GNB
+            state_csv = None
+            for file in os.listdir(simulation_folder):
+                if file.endswith("_state_estimation.csv") or file == "Sequential_simulation_state_estimation.csv":
+                    state_csv = os.path.join(simulation_folder, file)
+                    break
+            
+            gnb_exec_times = {}
+            gnb_total_times_chart = {}
+            
+            if state_csv and os.path.exists(state_csv):
+                import pandas as pd
+                df_state = pd.read_csv(state_csv)
+                
+                # Calculate average execution times and total times per GNB
+                for gnb_id in df_state['GNBID'].unique():
+                    gnb_rows = df_state[df_state['GNBID'] == gnb_id]
+                    avg_exec_time = gnb_rows['ExecTime'].mean() if 'ExecTime' in gnb_rows.columns else 0.0
+                    avg_total_time = gnb_rows['TotalTime'].mean() if 'TotalTime' in gnb_rows.columns else 0.0
+                    gnb_name = f"GNB_{gnb_id}"
+                    gnb_exec_times[gnb_name] = avg_exec_time
+                    gnb_total_times_chart[gnb_name] = avg_total_time
+            
             gnb_names_wait = sorted(gnb_waiting_times.keys())
-            gnb_wait_values = []
+            gnb_pdc_times = []
+            gnb_network_times = []
+            gnb_exec_times_list = []
             
             for gnb_name in gnb_names_wait:
-                wait_time = gnb_waiting_times[gnb_name]
-                gnb_wait_values.append(wait_time)
+                pdc_time = gnb_waiting_times[gnb_name]
+                exec_time = gnb_exec_times.get(gnb_name, 0.0)
+                total_time = gnb_total_times_chart.get(gnb_name, 0.0)
+                network_time = max(0, total_time - pdc_time - exec_time)  # Ensure non-negative
+                
+                gnb_pdc_times.append(pdc_time)
+                gnb_network_times.append(network_time)
+                gnb_exec_times_list.append(exec_time)
             
-            bars4 = ax4.bar(gnb_names_wait, gnb_wait_values, color='orange')
-            ax4.set_title('GNB Average PMU Waiting Time', fontweight='bold')
+            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time)
+            bars4_network = ax4.bar(gnb_names_wait, gnb_network_times, color='blue', label='Network Transfer Time')
+            bars4_pdc = ax4.bar(gnb_names_wait, gnb_pdc_times, bottom=gnb_network_times, color='lightcoral', label='PDC Waiting Time')
+            bars4_exec = ax4.bar(gnb_names_wait, gnb_exec_times_list, 
+                               bottom=[n + p for n, p in zip(gnb_network_times, gnb_pdc_times)], 
+                               color='orange', label='Execution Time')
+            
+            ax4.set_title('GNB Average Timings', fontweight='bold')
             ax4.set_xlabel('GNB ID')
-            ax4.set_ylabel('Average PMU Waiting Time (s)')
+            ax4.set_ylabel('Average Time (s)')
             ax4.grid(True, alpha=0.3)
+            ax4.legend(loc='upper right', fontsize=8)
             
-            # Add value labels on bars
-            for bar, wait_time in zip(bars4, gnb_wait_values):
-                height = bar.get_height()
-                ax4.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
-                        f'{wait_time:.4f}s', ha='center', va='bottom', fontsize=10)
+            # Add total time labels on top of bars
+            for i, gnb_name in enumerate(gnb_names_wait):
+                total_time = gnb_total_times_chart.get(gnb_name, 0.0)
+                if total_time > 0:
+                    ax4.text(i, total_time + total_time*0.02,
+                            f'{total_time:.4f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
         # Adjust layout to prevent overlap
         plt.tight_layout()

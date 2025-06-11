@@ -76,6 +76,14 @@ public class EdgeLogger {
     // **NEW: Store PDC waiting times for each task**
     private Map<Integer, Double> taskCollectionTimes = new HashMap<>();
     
+    // **NEW: Store first data network delays for each task**
+    private Map<Integer, Double> taskFirstDataNetworkDelays = new HashMap<>();
+    
+    // **NEW: Network usage tracking (similar to UpfTelcoLogger)**
+    private Map<String, Double> networkVolumePerLayer = new HashMap<>();
+    private Map<String, Integer> transferCountPerLayer = new HashMap<>();
+    private static final String NETWORK_USAGE_CSV_HEADER = "NetworkLevel,TotalDataVolumeKB,TransferCount,AverageDataSizeKB";
+    
     /**
      * Stores hop times for a task (keeping legacy fields for compatibility)
      */
@@ -433,6 +441,9 @@ public class EdgeLogger {
             System.out.println("EdgeLogger - Error saving State Estimation CSV: " + e.getMessage());
             e.printStackTrace();
         }
+        
+        // **NEW: Save Network Usage CSV**
+        saveNetworkUsageCSV();
         
         // Clear the lists
         csvRecords.clear();
@@ -811,7 +822,18 @@ public class EdgeLogger {
         // **NEW: Get PDC waiting time for this task**
         double pdcWaitingTime = taskCollectionTimes.getOrDefault(stateTask.getId(), 0.0);
         
-        // **NEW: Add to State Estimation CSV with GNB ID**
+        // **NEW: Get first data network delay for this task (from Hop_Sum of first arriving PMU data)**
+        double firstDataNetworkDelay = taskFirstDataNetworkDelays.getOrDefault(stateTask.getId(), 0.0);
+        
+        // **NEW: Calculate custom total time = First Data Network Delay + PDC Waiting Time + Execution Time**
+        double customTotalTime = firstDataNetworkDelay + pdcWaitingTime + executionTime;
+        
+        // DEBUG: Print timing calculation
+        System.out.println("DEBUG - Task " + stateTask.getId() + ": FirstDataNetDelay=" + firstDataNetworkDelay + 
+                          " + PDCWait=" + pdcWaitingTime + " + ExecTime=" + executionTime + 
+                          " = CustomTotal=" + customTotalTime);
+        
+        // **NEW: Add to State Estimation CSV with GNB ID using custom total time**
         String stateEstimationCsvRecord = String.format("%.4f,%d,%s,%s,%s,%s,%.2f,%.2f,%.2f,%.0f,%.4f,%.4f,%.4f,%.4f,%s,%.4f,%d",
             currentTime,
             stateTask.getId(),
@@ -826,7 +848,7 @@ public class EdgeLogger {
             waitingTime,
             executionTime,
             networkTime,
-            totalTime,
+            customTotalTime,  // Use custom calculated total time instead of totalTime
             status,
             pdcWaitingTime,
             success ? 1 : 0  // Success flag as integer for easier analysis
@@ -854,7 +876,7 @@ public class EdgeLogger {
             waitingTime,
             executionTime,
             networkTime,
-            totalTime,
+            customTotalTime,  // Use custom calculated total time
             status,
             windowInfo,
             pdcWaitingTime
@@ -869,8 +891,9 @@ public class EdgeLogger {
             logWriter.flush();
         }
         
-        // **NEW: Clean up PDC waiting time data**
+        // **NEW: Clean up task timing data**
         taskCollectionTimes.remove(stateTask.getId());
+        taskFirstDataNetworkDelays.remove(stateTask.getId());
     }
     
     /**
@@ -898,6 +921,13 @@ public class EdgeLogger {
         
         // **NEW: Store PDC waiting time for this task**
         taskCollectionTimes.put(taskId, pdcWaitingTime);
+    }
+    
+    /**
+     * **NEW: Store first data network delay for a task**
+     */
+    public void storeFirstDataNetworkDelay(int taskId, double firstDataNetworkDelay) {
+        taskFirstDataNetworkDelays.put(taskId, firstDataNetworkDelay);
     }
     
     /**
@@ -1015,5 +1045,102 @@ public class EdgeLogger {
         } catch (Exception e) {
             return 0; // Default fallback
         }
+    }
+    
+    // **NEW: Network usage tracking methods**
+    
+    /**
+     * Track network data volume for a specific layer
+     */
+    public void trackNetworkVolume(String networkLevel, double dataSizeKB) {
+        networkVolumePerLayer.put(networkLevel,
+                networkVolumePerLayer.getOrDefault(networkLevel, 0.0) + dataSizeKB);
+        transferCountPerLayer.put(networkLevel,
+                transferCountPerLayer.getOrDefault(networkLevel, 0) + 1);
+    }
+    
+    /**
+     * Get total network volume for a layer
+     */
+    public double getNetworkVolume(String networkLevel) {
+        return networkVolumePerLayer.getOrDefault(networkLevel, 0.0);
+    }
+    
+    /**
+     * Get transfer count for a layer
+     */
+    public int getTransferCount(String networkLevel) {
+        return transferCountPerLayer.getOrDefault(networkLevel, 0);
+    }
+    
+    /**
+     * Track PMU data generation
+     */
+    public void trackPmuDataGeneration(int pmuId, double dataSizeKB) {
+        trackNetworkVolume("PMU_" + pmuId, dataSizeKB);
+        trackNetworkVolume("PMU_LAYER_TOTAL", dataSizeKB);
+    }
+    
+    /**
+     * Track GNB data arrival
+     */
+    public void trackGnbDataArrival(String gnbId, double dataSizeKB) {
+        trackNetworkVolume("GNB_" + gnbId, dataSizeKB);
+        trackNetworkVolume("GNB_LAYER_TOTAL", dataSizeKB);
+    }
+    
+    /**
+     * Track PMU to GNB transfer
+     */
+    public void trackPmuToGnbTransfer(double dataSizeKB) {
+        trackNetworkVolume("PMU_to_GNB", dataSizeKB);
+    }
+    
+    /**
+     * Save network usage CSV
+     */
+    public void saveNetworkUsageCSV() {
+        try {
+            String csvFileName = getNetworkUsageCSVFileName();
+            try (PrintWriter writer = new PrintWriter(new FileWriter(csvFileName))) {
+                writer.println(NETWORK_USAGE_CSV_HEADER);
+                
+                // Sort by network level for consistent output
+                List<String> sortedLevels = new ArrayList<>(networkVolumePerLayer.keySet());
+                sortedLevels.sort(String::compareToIgnoreCase);
+                
+                for (String networkLevel : sortedLevels) {
+                    double totalVolume = networkVolumePerLayer.get(networkLevel);
+                    int transferCount = transferCountPerLayer.get(networkLevel);
+                    double avgDataSize = transferCount > 0 ? (totalVolume / transferCount) : 0.0;
+                    
+                    writer.printf("%s,%.6f,%d,%.6f%n",
+                            networkLevel, totalVolume, transferCount, avgDataSize);
+                }
+                
+                // **NEW: Add TELCO and TSO with zero values for consistency with scenario 2**
+                // These layers don't exist in scenario 3 architecture but we show them as 0 for comparison
+                writer.printf("%s,%.6f,%d,%.6f%n", "TELCO", 0.0, 0, 0.0);
+                writer.printf("%s,%.6f,%d,%.6f%n", "TSO", 0.0, 0, 0.0);
+                
+            }
+            System.out.println("Network usage CSV saved: " + csvFileName);
+        } catch (IOException e) {
+            System.err.println("Failed to save network usage CSV: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Get network usage CSV file name
+     */
+    private String getNetworkUsageCSVFileName() {
+        String baseFileName = getCSVFileName();
+        // Replace _pmu_data_transfers with _network_usage
+        String networkFileName = baseFileName.replace("_pmu_data_transfers.csv", "_network_usage.csv");
+        if (networkFileName.equals(baseFileName)) {
+            // Fallback if pattern not found
+            networkFileName = baseFileName.replace(".csv", "_network_usage.csv");
+        }
+        return networkFileName;
     }
 } 
