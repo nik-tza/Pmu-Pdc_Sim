@@ -440,8 +440,7 @@ public class UpfTelcoDataCollectorDynamic extends SimEntity {
             UpfTelcoLogger.getInstance().trackNetworkVolume("StateEstimation_Input", totalDataKB);
             UpfTelcoLogger.getInstance().trackNetworkVolume("StateEstimation_Output", GRID_ANALYSIS_OUTPUT_SIZE_KB);
             
-            // **NEW: Track TSO data arrival (Grid Analysis results go to TSO)**
-            UpfTelcoLogger.getInstance().trackTsoDataArrival(GRID_ANALYSIS_OUTPUT_SIZE_KB);
+            // **NOTE: In this distributed scenario, Grid Analysis results stay local in GNBs - no TSO transfer**
             
             // **EXECUTE the grid analysis task immediately**
             scheduleNow(simulationManager, com.mechalikh.pureedgesim.simulationmanager.SimulationManager.SEND_TO_ORCH, analysisTask);

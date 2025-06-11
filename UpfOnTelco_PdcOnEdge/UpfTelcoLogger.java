@@ -723,8 +723,7 @@ public class UpfTelcoLogger {
                           " + PDCWait=" + pdcWaitingTime + " + ExecTime=" + executionTime + 
                           " = CustomTotal=" + customTotalTime);
         
-        // **NEW: Track TSO data processing (State Estimation results)**
-        trackTsoDataArrival(returnSizeKB);  // TSO processes the State Estimation output
+        // **NOTE: In distributed scenario, State Estimation results stay local in GNBs - no TSO processing**
         
         // **NEW: Add to State Estimation CSV with GNB ID using custom total time**
         String stateEstimationCsvRecord = String.format("%.4f,%d,%s,%s,%s,%s,%.2f,%.2f,%.2f,%.0f,%.4f,%.4f,%.4f,%.4f,%s,%.4f,%d",
@@ -1085,13 +1084,7 @@ public class UpfTelcoLogger {
                 networkUsageCsvRecords.add(csvRecord);
             }
             
-            // 5. TSO statistics (add here before individual nodes)
-            if (tsoTransferCount > 0) {
-                double avgDataSize = tsoDataVolume / tsoTransferCount;
-                String csvRecord = String.format("TSO,%.6f,%d,%.6f",
-                    tsoDataVolume, tsoTransferCount, avgDataSize);
-                networkUsageCsvRecords.add(csvRecord);
-            }
+            // 5. Individual PMU node statistics first
             
             // **NEW: Add individual PMU node statistics**
             for (String pmuId : dataVolumePMU.keySet()) {
@@ -1115,7 +1108,7 @@ public class UpfTelcoLogger {
                 networkUsageCsvRecords.add(csvRecord);
             }
             
-            // **NOTE: TELCO and TSO are handled above in specific order - removed duplicates**
+            // **NOTE: TELCO and TSO are handled above in specific order**
             
             // **NEW: Add layer summaries**
             // PMU Layer Total
@@ -1137,6 +1130,20 @@ public class UpfTelcoLogger {
                     totalGnbVolume, totalGnbTransfers, avgGnbDataSize);
                 networkUsageCsvRecords.add(csvRecord);
             }
+            
+            // **NEW: TELCO statistics (individual TELCO node) - after layer totals**
+            if (telcoTransferCount > 0) {
+                double avgDataSize = telcoDataVolume / telcoTransferCount;
+                String csvRecord = String.format("TELCO,%.6f,%d,%.6f",
+                    telcoDataVolume, telcoTransferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: TSO statistics (always show, even if 0) - after TELCO**
+            double tsoAvgDataSize = tsoTransferCount > 0 ? tsoDataVolume / tsoTransferCount : 0.0;
+            String csvRecord = String.format("TSO,%.6f,%d,%.6f",
+                tsoDataVolume, tsoTransferCount, tsoAvgDataSize);
+            networkUsageCsvRecords.add(csvRecord);
             
             // Write to CSV file
             try (PrintWriter writer = new PrintWriter(new FileWriter(csvFileName))) {
