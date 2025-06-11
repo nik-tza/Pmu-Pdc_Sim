@@ -235,6 +235,7 @@
           <!-- Ενημέρωση της Java έκδοσης σε 11 για υποστήριξη List.of() και παρόμοιων μεθόδων -->
           <source>11</source>
           <target>11</target>
+
         </configuration>
       </plugin>
 
@@ -276,9 +277,9 @@
             </goals>
             <configuration>
               <sources>
-                <source>${project.basedir}</source>
-                <source>${project.basedir}/DroneSim</source>
-                <source>${project.basedir}/PmuSim</source>
+                <source>${project.basedir}/UpfOnEdge_PdcOnEdge</source>
+                <source>${project.basedir}/UpfOnTelco_PdcOnCloud</source>
+                <source>${project.basedir}/UpfOnTelco_PdcOnEdge</source>
               </sources>
             </configuration>
           </execution>
@@ -290,8 +291,28 @@
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>run-cloud</id>
+            <configuration>
+              <mainClass>UpfOnTelco_PdcOnCloud.CloudSimulation</mainClass>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-edge</id>
+            <configuration>
+              <mainClass>UpfOnEdge_PdcOnEdge.EdgeSimulation</mainClass>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-upf-telco</id>
+            <configuration>
+              <mainClass>UpfOnTelco_PdcOnEdge.UpfTelcoSimulation</mainClass>
+            </configuration>
+          </execution>
+        </executions>
         <configuration>
-          <mainClass>PmuSim.PmuSimulation</mainClass>
+          <mainClass>UpfOnTelco_PdcOnCloud.CloudSimulation</mainClass>
         </configuration>
       </plugin>
     </plugins>
@@ -306,11 +327,15 @@
         <filtering>false</filtering>
       </resource>
       <resource>
-        <directory>DroneSim/Drone_settings</directory>
+        <directory>UpfOnTelco_PdcOnCloud/settings</directory>
         <filtering>false</filtering>
       </resource>
       <resource>
-        <directory>PmuSim/Pmu_settings</directory>
+        <directory>UpfOnEdge_PdcOnEdge/settings</directory>
+        <filtering>false</filtering>
+      </resource>
+      <resource>
+        <directory>UpfOnTelco_PdcOnEdge/settings</directory>
         <filtering>false</filtering>
       </resource>
     </resources>
