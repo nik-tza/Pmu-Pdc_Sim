@@ -2,36 +2,66 @@
 
 ## 🔋 Overview
 
-This system simulates a **Smart Grid Power Monitoring Network** using **PMU (Phasor Measurement Unit) sensors** that send data to a **TSO (Transmission System Operator)** for real-time grid analysis. The system models realistic network delays, distance-based routing, and dynamic data collection windows.
+This system simulates a **Smart Grid Power Monitoring Network** using **PMU (Phasor Measurement Unit) sensors** that send data to different **PDC (Phasor Data Concentrator)** locations for real-time grid analysis. The system models realistic network delays, distance-based routing, and dynamic data collection with **3 different deployment scenarios**.
 
-![simulation_map](PmuSim/Pmu_output/45ms_max_pmu_waiting/pmu_simulation_map.png)
+## 🌟 Three Deployment Scenarios
 
+### **Scenario 1: UpfOnTelco_PdcOnCloud** (Script: s1_sim.sh)
+- **UPF Location**: TELCO Hub  
+- **PDC Location**: TSO Cloud
+- **Data Flow**: PMU → GNB → TELCO → TSO (PDC processing) → Results
+- **Characteristics**: Centralized processing, highest latency, cloud scalability
 
-### 🎯 Core Concept
+| Network Map | Performance Analysis | Network Usage |
+|-------------|---------------------|---------------|
+| ![Cloud Simulation Map](UpfOnTelco_PdcOnCloud/output/0.015s_PDC_WaitingTime/cloud_simulation_map.png) | ![Performance Charts](UpfOnTelco_PdcOnCloud/output/0.015s_PDC_WaitingTime/performance_analysis_charts.png) | ![Network Usage](UpfOnTelco_PdcOnCloud/output/0.015s_PDC_WaitingTime/network_bandwidth_usage_charts.png) |
 
-**PMU Sensors → GNB/Edge Datacenters → TELCO Hub → TSO Cloud**
+### **Scenario 2: UpfOnTelco_PdcOnEdge** (Script: s2_sim.sh)
+- **UPF Location**: TELCO Hub
+- **PDC Location**: Edge Datacenters (GNBs)
+- **Data Flow**: PMU → GNB → TELCO → back to GNB (PDC processing) → Results
+- **Characteristics**: Hybrid approach, GNB processing with TELCO routing
+
+| Network Map | Performance Analysis | Network Usage |
+|-------------|---------------------|---------------|
+| ![Telco Simulation Map](UpfOnTelco_PdcOnEdge/output/0.0155s_PDC_WaitingTime/edge_simulation_map.png) | ![Performance Charts](UpfOnTelco_PdcOnEdge/output/0.0155s_PDC_WaitingTime/performance_analysis_charts.png) | ![Network Usage](UpfOnTelco_PdcOnEdge/output/0.0155s_PDC_WaitingTime/network_usage_analysis.png) |
+
+### **Scenario 3: UpfOnEdge_PdcOnEdge** (Script: s3_sim.sh)
+- **UPF Location**: Edge Datacenters (GNBs)
+- **PDC Location**: Edge Datacenters (GNBs) 
+- **Data Flow**: PMU → GNB (PDC processing) → Results
+- **Characteristics**: Lowest latency, distributed processing
+
+| Network Map | Performance Analysis | Network Usage |
+|-------------|---------------------|---------------|
+| ![Edge Simulation Map](UpfOnEdge_PdcOnEdge/output/0.015s_PDC_WaitingTime/edge_simulation_map.png) | ![Performance Charts](UpfOnEdge_PdcOnEdge/output/0.015s_PDC_WaitingTime/performance_analysis_charts.png) | ![Network Usage](UpfOnEdge_PdcOnEdge/output/0.015s_PDC_WaitingTime/network_usage_analysis.png) |
+
+## 🎯 Core Concept
+
+**PMU Sensors → GNB/Edge Datacenters → TELCO → TSO Cloud**
 
 1. **Multiple PMU sensors** send **synchronized measurements** periodically
 2. **Distance-based routing** selects the closest GNB for each PMU
 3. **Dynamic collection windows** gather PMU data with configurable waiting latency
-4. **Grid Analysis tasks** are created for centralized power grid monitoring
+4. **Grid Analysis tasks** are processed at different locations based on scenario
 5. **Realistic network simulation** with hop-by-hop delays and distances
 
 ---
 
 ## 🏗️ System Architecture
 
-### 📊 Data Flow
+### 📊 Data Flow (varies by scenario)
 ```
-PMU Sensors (multiple) → Measurements → Network Transfer → Data Collection → Grid Analysis → Results
+Scenario 1: PMU → GNB → TELCO → TSO (PDC) → Results
+Scenario 2: PMU → GNB → TELCO → GNB (PDC) → Results  
+Scenario 3: PMU → GNB (PDC) → Results
 ```
 
 ### 🌐 Network Topology
 ```
 PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
     ↑               ↑            ↑           ↑
-    5G        MAN Network   MAN Network   WAN Network
- 
+   5G/LTE      MAN Network   MAN Network   WAN Network
 ```
 
 ---
@@ -39,137 +69,87 @@ PMU Sensors → GNB (Edge) → TELCO (Hub) → TSO (Cloud)
 ## 🔧 Core Components
 
 ### 1. **PmuSimulation.java** - Main Entry Point
-**Responsibility**: Starts the simulation and coordinates all components
 - Loads configuration from XML files
 - Sets up custom components (NetworkModel, TaskGenerator, etc.)
 - Executes post-simulation analysis
 
-### 2. **PmuNetworkModel.java** - Realistic Network Simulation
-**Responsibility**: Calculates realistic network delays with distance-based routing
-- **Distance-based GNB selection**: Finds closest GNB for each PMU
-- **Hop-by-hop calculations**: PMU→GNB→TELCO→TSO with realistic timing
-- **Distance delays**: Configurable physical signal propagation
-- **Network jitter**: Gaussian noise for realistic variation
+### 2. **Network Models** - Scenario-Specific Routing
+- **CloudNetworkModel.java**: For Scenario 1 (Cloud processing)
+- **TelcoNetworkModel.java**: For Scenario 2 (TELCO routing + Edge processing)
+- **EdgeNetworkModel.java**: For Scenario 3 (Edge processing)
+- **Distance-based GNB selection** and **hop-by-hop calculations**
 
 ### 3. **PmuDataCollectorDynamic.java** - Smart Data Collection
-**Responsibility**: Collects PMU data in dynamic windows and creates Grid Analysis Task
 - **Generation time grouping**: Tasks with same generation time together
 - **Configurable waiting latency**: Timeout for late arrivals
 - **Deadline enforcement**: DEADLINE_MISSED for late PMU data
-- **Grid Analysis creation**: Analysis tasks when window closes
 
-### 4. **PmuTaskOrchestrator.java** - Task Management
-**Responsibility**: Orchestrates where PMU sends data, Separates PMU data tasks from Grid Analysis tasks
-- **Loop prevention**: Prevents infinite loops from completed Grid Analysis
-- **Event forwarding**: Sends PMU data to DataCollector
-
-### 5. **PmuTaskGenerator.java** - Synchronized PMU Data
-**Responsibility**: Creates synchronized measurements from all PMUs
-- **Perfect synchronization**: All PMUs send data at the same time
-- **Variable data size**: Configurable data size with variation
-
-### 6. **PmuSimulationManager.java** - Simulation Coordination
-**Responsibility**: Coordinates all simulation components
-- **Component integration**: Sets up NetworkModel, DataCollector, Logger
-- **Event routing**: Forwards PMU_DATA_RECEIVED events to DataCollector
-- **Statistics collection**: Gathers final statistics
-
-### 7. **PmuLogger.java** - Comprehensive Logging
-**Responsibility**: Records all system activities
+### 4. **PmuLogger.java** - Comprehensive Logging
 - **Dual CSV outputs**: PMU data transfers + Grid Analysis tasks
-- **Deadline tracking**: DEADLINE_MISSED flag for late arrivals
 - **Hop-by-hop details**: Network path with times and distances
-- **Statistics generation**: Produces comprehensive analysis data
+- **Statistics generation**: Scenario-specific performance metrics
 
-### 8. **PmuLogAnalysis.py** - Post-Simulation Analysis
-**Responsibility**: Analyzes simulation results and creates visualizations
-- **Network analysis**: Hop times, distances, deadline misses
-- **Simulation map**: Visual representation of PMU network
-- **Statistics generation**: Comprehensive performance metrics
-
----
-
-## 📈 Simulation Phases
-
-### Phase 1: **Initialization**
-1. **Configuration loading**: XML files for PMUs, GNBs, TELCO, TSO
-2. **Component setup**: Network model, task generator, data collector
-3. **Logger initialization**: CSV headers and output directories
-
-### Phase 2: **PMU Data Generation**
-1. **Synchronized measurements**: All PMUs send data 
-2. **Network transfer**: Distance-based routing with realistic delays
-3. **Data collection**: Dynamic windows group measurements by generation time
-
-### Phase 3: **Grid Analysis**
-1. **Window completion**: When PMU data collection window closes
-2. **Analysis task creation**: Grid Analysis tasks for power monitoring is created and executed
-
-
-### Phase 4: **Results & Analysis**
-1. **Log generation**: Detailed CSV files with network and task data
-2. **Visualization**: Maps and charts from Python analysis
-3. **Statistics**: Performance metrics and system analysis
+### 5. **Analysis Scripts** - Post-Simulation Visualization
+- **CloudLogAnalysis.py**: Analysis for Scenario 1
+- **TelcoLogAnalysis.py**: Analysis for Scenario 2  
+- **EdgeLogAnalysis.py**: Analysis for Scenario 3
 
 ---
 
-## 🎛️ Key Parameters
+## 📈 Simulation Results
 
-### Network Configuration
-- **Distance delays**: Configurable physical propagation speed
-- **PMU data size**: Configurable per measurement with variation
-- **Collection window**: Configurable max waiting time
-- **Network jitter**: Gaussian variation for realism
-
-### Smart Grid Specifics
-- **PMU frequency**: Configurable measurements per time unit
-- **Grid Analysis**: Configurable computational complexity
-- **Analysis latency**: Configurable max processing time
-
-
----
-
-## 📁 Output Files
+Each scenario generates:
 
 ### CSV Data Files
 - **`Sequential_simulation_pmu.csv`**: PMU data transfers with hop details
 - **`Sequential_simulation_state_estimation.csv`**: Grid Analysis task results
 
 ### Analysis Results
-- **`pmu_simulation_map.png`**: Network topology visualization
+- **`[scenario]_simulation_map.png`**: Network topology visualization
+- **`performance_analysis_charts.png`**: Performance comparison charts
+- **`network_bandwidth_usage_charts.png`**: Network utilization analysis
 - **`pmu_simulation_statistics.txt`**: Comprehensive performance metrics
-
-### Log Files
-- **`pmu_simulation.log`**: Detailed execution timeline
 
 ---
 
-## 🔬 Technical Details for Extensions
+## 🎛️ Key Configuration
 
-### Custom Network Model
-**PmuNetworkModel** extends **DefaultNetworkModel** for:
-- **NetworkTransferResult**: Container for hop times and distances
-- **Distance calculations**: Euclidean distance with location coordinates
-- **GNB selection algorithm**: Closest edge datacenter with coverage check
-- **Hop timing calculation**: Bandwidth + latency + distance delays
+### Simulation Parameters
+```properties
+# PMU Configuration
+min_number_of_edge_devices=30
+max_number_of_edge_devices=30
 
-### Data Collection Algorithm
-**PmuDataCollectorDynamic** implements:
-- **Generation time buffering**: Tasks grouped by `task.getTime()`
-- **Timeout mechanism**: `GENERATION_TIME_TIMEOUT` events for window closing
-- **Deadline enforcement**: Drop tasks arriving after `MAX_WAITING_LATENCY`
-- **PDC waiting time**: Accurate calculation for State Estimation analysis
+# Network Area
+length=2000  # meters
+width=2000   # meters
 
-### Event-Driven Architecture
-- **PMU_DATA_RECEIVED**: PMU data arrival at TSO
-- **GENERATION_TIME_TIMEOUT**: Collection window timeout
-- **Task routing**: Orchestrator forwards events based on task type
+# Collection Parameters
+max_pdc_waiting_time=0.0449  # seconds
+pmu_measurement_rate=1       # measurements per second
+```
 
+### Network Infrastructure
+- **PMU Sensors**: Configurable count and positions
+- **GNB Edge Datacenters**: 4 edge locations with coverage areas
+- **TELCO Hub**: Central telecommunications hub
+- **TSO Cloud**: Transmission system operator cloud
 
---
+---
 
 ## 🚀 Quick Start
 
-See [QUICK_START.md](QUICK_START.md) for step-by-step execution instructions.
+See [QUICK_START.md](QUICK_START.md) for step-by-step execution instructions for all 3 scenarios.
 
 ---
+
+## 📊 Performance Comparison
+
+The system allows comparison of the three scenarios across:
+- **Network Latency**: End-to-end transfer times
+- **Processing Delays**: PDC processing location impact
+- **Deadline Compliance**: On-time delivery rates
+- **Resource Utilization**: Network and computational resources
+- **Scalability**: Performance under different PMU counts
+
+Each scenario provides insights into smart grid deployment trade-offs between latency, processing power, and network utilization.

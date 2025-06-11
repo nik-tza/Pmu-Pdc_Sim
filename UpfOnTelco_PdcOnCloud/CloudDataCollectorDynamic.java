@@ -24,14 +24,14 @@ public class CloudDataCollectorDynamic extends SimEntity {
     
     // Collection parameters
     private final int REQUIRED_PMU_COUNT;
-    private static final double MAX_WAITING_LATENCY =  0.045; // **max waiting for late PMU data**
+    private static final double MAX_WAITING_LATENCY = 0.015; // **max waiting for late PMU data**
     
     // Fixed PMU data size (2KB)
     private static final double PMU_DATA_SIZE_KB = 2.0;
     private static final double PMU_DATA_SIZE_BITS = PMU_DATA_SIZE_KB * 8192.0;
     
     // **State Estimation Task Parameters**
-    private static final long GRID_ANALYSIS_LENGTH_MI = 15000; // 15,000 MI for complex grid analysis
+    private static final long GRID_ANALYSIS_LENGTH_MI = 1000; // 15,000 MI for complex grid analysis
     private static final double GRID_ANALYSIS_MAX_LATENCY = 2.0; // 2 seconds max latency
     private static final long GRID_ANALYSIS_OUTPUT_SIZE_KB = 50; // 50KB analysis result
     private static final long GRID_ANALYSIS_CONTAINER_SIZE_MB = 100; // 100MB container
@@ -141,6 +141,9 @@ public class CloudDataCollectorDynamic extends SimEntity {
         if (networkModel != null) {
             ComputingNode tsoNode = findTsoNode();
             transferResult = networkModel.calculateNetworkTransferWithDetails(dataTask.getEdgeDevice(), tsoNode, dataTask, dataSize);
+            
+            // **NEW: Call network tracking to populate CSV data**
+            CloudLogger.getInstance().logPmuNetworkTransfer(dataTask, transferResult);
         }
         
         // **Calculate REAL arrival time with network delay**
@@ -341,6 +344,10 @@ public class CloudDataCollectorDynamic extends SimEntity {
                 analysisTask, (int)(generationTime * 1000), onTimeTasks.size(), REQUIRED_PMU_COUNT, 
                 pdcWaitingTime, totalDataKB, batchType
             );
+            
+            // **Store first data network delay for custom total time calculation**
+            double firstDataNetworkDelay = onTimeTasks.get(0).networkDelay;
+            CloudLogger.getInstance().storeFirstDataNetworkDelay(newTaskId, firstDataNetworkDelay);
             
             // Log data collection completion
             CloudLogger.getInstance().logDataCollectionComplete(generationTime, onTimeTasks.size(), isComplete);

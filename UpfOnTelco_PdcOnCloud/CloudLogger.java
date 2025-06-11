@@ -74,8 +74,27 @@ public class CloudLogger {
     // **NEW: Store PDC waiting times for each task**
     private Map<Integer, Double> taskCollectionTimes = new HashMap<>();
     
+    // **NEW: Store first data network delays for each task**
+    private Map<Integer, Double> taskFirstDataNetworkDelays = new HashMap<>();
+    
+    // **NEW: Network volume tracking per layer for 4-hop architecture**
+    private Map<String, Double> networkVolumePerLayer = new HashMap<>();
+    private Map<String, Integer> transferCountPerLayer = new HashMap<>();
+    private List<String> networkUsageCsvRecords = new ArrayList<>();
+    private static final String NETWORK_USAGE_CSV_HEADER = "NetworkLevel,TotalDataVolumeKB,TransferCount,AverageDataSizeKB";
+    
+    // **NEW: Individual node data volume tracking for cloud scenario**
+    private Map<String, Double> dataVolumePMU = new HashMap<>();     // PMU_1 -> total volume
+    private Map<String, Integer> transferCountPMU = new HashMap<>();  // PMU_1 -> transfer count
+    private Map<String, Double> dataVolumeGNB = new HashMap<>();     // GNB_1 -> total volume  
+    private Map<String, Integer> transferCountGNB = new HashMap<>();  // GNB_1 -> transfer count
+    private double telcoDataVolume = 0.0;                            // Single TELCO value
+    private int telcoTransferCount = 0;                              // TELCO transfer count
+    private double tsoDataVolume = 0.0;                              // Single TSO value (cloud processing)
+    private int tsoTransferCount = 0;                                // TSO transfer count
+    
     /**
-     * Stores hop times for a task
+     * Stores hop times for a task - updated for 4-hop cloud architecture
      */
     public static class TaskHopInfo {
         public final String gnbName;
@@ -432,6 +451,9 @@ public class CloudLogger {
             e.printStackTrace();
         }
         
+        // **NEW: Save network usage statistics to CSV for cloud scenario (4-hop architecture)**
+        saveNetworkUsageCSV();
+        
         // Clear the lists
         csvRecords.clear();
         stateEstimationCsvRecords.clear();
@@ -772,7 +794,13 @@ public class CloudLogger {
         // **NEW: Get PDC waiting time for this task**
         double pdcWaitingTime = taskCollectionTimes.getOrDefault(stateTask.getId(), 0.0);
         
-        // **NEW: Add to State Estimation CSV**
+        // **NEW: Get first data network delay for this task (from Hop_Sum of first arriving PMU data)**
+        double firstDataNetworkDelay = taskFirstDataNetworkDelays.getOrDefault(stateTask.getId(), 0.0);
+        
+        // **NEW: Calculate custom total time = First Data Network Delay + PDC Waiting Time + Execution Time**
+        double customTotalTime = firstDataNetworkDelay + pdcWaitingTime + executionTime;
+        
+        // **NEW: Add to State Estimation CSV with custom total time**
         String stateEstimationCsvRecord = String.format("%.4f,%d,%s,%s,%s,%.2f,%.2f,%.2f,%.0f,%.4f,%.4f,%.4f,%.4f,%s,%.4f,%d",
             currentTime,
             stateTask.getId(),
@@ -786,12 +814,18 @@ public class CloudLogger {
             waitingTime,
             executionTime,
             networkTime,
-            totalTime,
+            customTotalTime,  // Use custom calculated total time
             status,
             pdcWaitingTime,
             success ? 1 : 0  // Success flag as integer for easier analysis
         );
         stateEstimationCsvRecords.add(stateEstimationCsvRecord);
+        
+        // **NEW: Track state estimation data processing**
+        trackNetworkVolume("StateEstimation_Input", dataSizeKB);
+        if (success) {
+            trackNetworkVolume("StateEstimation_Output", returnSizeKB);
+        }
         
         // Create the state estimation task completion log entry
         String taskMessage = String.format(
@@ -809,7 +843,7 @@ public class CloudLogger {
             waitingTime,
             executionTime,
             networkTime,
-            totalTime,
+            customTotalTime,  // Use custom calculated total time
             status,
             windowInfo,
             pdcWaitingTime
@@ -824,8 +858,9 @@ public class CloudLogger {
             logWriter.flush();
         }
         
-        // **NEW: Clean up PDC waiting time data**
+        // **NEW: Clean up task timing data**
         taskCollectionTimes.remove(stateTask.getId());
+        taskFirstDataNetworkDelays.remove(stateTask.getId());
     }
     
     /**
@@ -853,6 +888,70 @@ public class CloudLogger {
         
         // **NEW: Store PDC waiting time for this task**
         taskCollectionTimes.put(taskId, pdcWaitingTime);
+    }
+    
+    /**
+     * **NEW: Store first data network delay for a task**
+     */
+    public void storeFirstDataNetworkDelay(int taskId, double firstDataNetworkDelay) {
+        taskFirstDataNetworkDelays.put(taskId, firstDataNetworkDelay);
+    }
+    
+    /**
+     * **NEW: Track network volume for backward compatibility with old system**
+     */
+    public void trackNetworkVolume(String networkLevel, double dataSizeKB) {
+        networkVolumePerLayer.put(networkLevel, 
+            networkVolumePerLayer.getOrDefault(networkLevel, 0.0) + dataSizeKB);
+        transferCountPerLayer.put(networkLevel, 
+            transferCountPerLayer.getOrDefault(networkLevel, 0) + 1);
+    }
+    
+    /**
+     * **NEW: Track data volume for individual PMU node when task is generated**
+     */
+    public void trackPmuDataGeneration(String pmuId, double dataSizeKB) {
+        dataVolumePMU.put(pmuId, dataVolumePMU.getOrDefault(pmuId, 0.0) + dataSizeKB);
+        transferCountPMU.put(pmuId, transferCountPMU.getOrDefault(pmuId, 0) + 1);
+        System.out.println("DEBUG: CloudLogger - Tracked PMU " + pmuId + " data: " + dataSizeKB + "KB, total: " + dataVolumePMU.get(pmuId));
+    }
+    
+    /**
+     * **NEW: Track data volume for individual GNB node when data arrives**
+     */
+    public void trackGnbDataArrival(String gnbId, double dataSizeKB) {
+        dataVolumeGNB.put(gnbId, dataVolumeGNB.getOrDefault(gnbId, 0.0) + dataSizeKB);
+        transferCountGNB.put(gnbId, transferCountGNB.getOrDefault(gnbId, 0) + 1);
+    }
+    
+    /**
+     * **NEW: Track data volume for TELCO when data arrives**
+     */
+    public void trackTelcoDataArrival(double dataSizeKB) {
+        telcoDataVolume += dataSizeKB;
+        telcoTransferCount++;
+    }
+    
+    /**
+     * **NEW: Track data volume for TSO when data arrives (cloud processing)**
+     */
+    public void trackTsoDataArrival(double dataSizeKB) {
+        tsoDataVolume += dataSizeKB;
+        tsoTransferCount++;
+    }
+    
+    /**
+     * **NEW: Get total network volume for a specific layer**
+     */
+    public double getNetworkVolume(String networkLevel) {
+        return networkVolumePerLayer.getOrDefault(networkLevel, 0.0);
+    }
+    
+    /**
+     * **NEW: Get transfer count for a specific layer**
+     */
+    public int getTransferCount(String networkLevel) {
+        return transferCountPerLayer.getOrDefault(networkLevel, 0);
     }
     
     /**
@@ -941,12 +1040,58 @@ public class CloudLogger {
             // Use the path string from transfer result
             String path = transferResult.getPathString();
             
+            // **NEW: Track network volume for each hop in 4-hop architecture**
+            trackNetworkVolume("PMU_to_GNB", dataSizeKB);
+            trackNetworkVolume("GNB_to_TELCO", dataSizeKB);
+            trackNetworkVolume("TELCO_to_TSO", dataSizeKB);  // Cloud-specific hop
+            
+            // **NEW: Track individual node data volumes**
+            // Track PMU data generation
+            String pmuNodeId = "PMU_" + pmuId;
+            trackPmuDataGeneration(pmuNodeId, dataSizeKB);
+            
+            // Track GNB data arrival (extract GNB ID from path)
+            String gnbId = extractGnbFromPath(path);
+            if (gnbId != null) {
+                trackGnbDataArrival(gnbId, dataSizeKB);
+            }
+            
+            // Track TELCO data arrival (data always passes through TELCO in our 4-hop path)
+            trackTelcoDataArrival(dataSizeKB);
+            
+            // Track TSO data arrival (final destination in cloud architecture)
+            trackTsoDataArrival(dataSizeKB);
+            
             // Log the transfer with all details
             logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, path, false, transferResult.totalDelay);
             
         } catch (Exception e) {
             System.err.println("CloudLogger - Error logging network transfer: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+    
+    /**
+     * **NEW: Extract GNB ID from path string for cloud architecture**
+     */
+    private String extractGnbFromPath(String path) {
+        try {
+            // Path format: "PMU_X -> GNB_Y (time) -> TELCO (time) -> TSO (time)"
+            // Extract the GNB_Y occurrence
+            if (path.contains("GNB_")) {
+                String[] parts = path.split(" -> ");
+                for (String part : parts) {
+                    if (part.trim().startsWith("GNB_")) {
+                        // Extract just "GNB_Y" part before the timing info
+                        String gnbPart = part.trim().split(" ")[0];
+                        return gnbPart;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("CloudLogger - Error extracting GNB from path: " + path);
+        }
+        return null;
     }
     
     /**
@@ -968,5 +1113,144 @@ public class CloudLogger {
         } catch (Exception e) {
             return 0; // Default fallback
         }
+    }
+    
+    /**
+     * **NEW: Save network usage statistics to CSV for cloud scenario (4-hop architecture)**
+     */
+    public void saveNetworkUsageCSV() {
+        try {
+            String csvFileName = getNetworkUsageCSVFileName();
+            
+            // **IMPORTANT: Clear old records first**
+            networkUsageCsvRecords.clear();
+            
+            // **NEW: Add network levels in specific order for 4-hop architecture**
+            // 1. PMU_to_GNB
+            if (networkVolumePerLayer.containsKey("PMU_to_GNB")) {
+                double totalVolume = networkVolumePerLayer.get("PMU_to_GNB");
+                int transferCount = transferCountPerLayer.get("PMU_to_GNB");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("PMU_to_GNB,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 2. GNB_to_TELCO  
+            if (networkVolumePerLayer.containsKey("GNB_to_TELCO")) {
+                double totalVolume = networkVolumePerLayer.get("GNB_to_TELCO");
+                int transferCount = transferCountPerLayer.get("GNB_to_TELCO");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("GNB_to_TELCO,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 3. TELCO_to_TSO (cloud architecture specific)
+            if (networkVolumePerLayer.containsKey("TELCO_to_TSO")) {
+                double totalVolume = networkVolumePerLayer.get("TELCO_to_TSO");
+                int transferCount = transferCountPerLayer.get("TELCO_to_TSO");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("TELCO_to_TSO,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // 4. StateEstimation_Input and Output (if they exist)
+            if (networkVolumePerLayer.containsKey("StateEstimation_Input")) {
+                double totalVolume = networkVolumePerLayer.get("StateEstimation_Input");
+                int transferCount = transferCountPerLayer.get("StateEstimation_Input");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("StateEstimation_Input,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            if (networkVolumePerLayer.containsKey("StateEstimation_Output")) {
+                double totalVolume = networkVolumePerLayer.get("StateEstimation_Output");
+                int transferCount = transferCountPerLayer.get("StateEstimation_Output");
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                String csvRecord = String.format("StateEstimation_Output,%.6f,%d,%.6f", totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: Add individual PMU node statistics**
+            for (String pmuId : dataVolumePMU.keySet()) {
+                double totalVolume = dataVolumePMU.get(pmuId);
+                int transferCount = transferCountPMU.get(pmuId);
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                
+                String csvRecord = String.format("%s,%.6f,%d,%.6f",
+                    pmuId, totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: Add individual GNB node statistics**
+            for (String gnbId : dataVolumeGNB.keySet()) {
+                double totalVolume = dataVolumeGNB.get(gnbId);
+                int transferCount = transferCountGNB.get(gnbId);
+                double avgDataSize = transferCount > 0 ? totalVolume / transferCount : 0.0;
+                
+                String csvRecord = String.format("%s,%.6f,%d,%.6f",
+                    gnbId, totalVolume, transferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: Add layer summaries**
+            // PMU Layer Total
+            double totalPmuVolume = dataVolumePMU.values().stream().mapToDouble(Double::doubleValue).sum();
+            int totalPmuTransfers = transferCountPMU.values().stream().mapToInt(Integer::intValue).sum();
+            if (totalPmuTransfers > 0) {
+                double avgPmuDataSize = totalPmuVolume / totalPmuTransfers;
+                String csvRecord = String.format("PMU_LAYER_TOTAL,%.6f,%d,%.6f",
+                    totalPmuVolume, totalPmuTransfers, avgPmuDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // GNB Layer Total
+            double totalGnbVolume = dataVolumeGNB.values().stream().mapToDouble(Double::doubleValue).sum();
+            int totalGnbTransfers = transferCountGNB.values().stream().mapToInt(Integer::intValue).sum();
+            if (totalGnbTransfers > 0) {
+                double avgGnbDataSize = totalGnbVolume / totalGnbTransfers;
+                String csvRecord = String.format("GNB_LAYER_TOTAL,%.6f,%d,%.6f",
+                    totalGnbVolume, totalGnbTransfers, avgGnbDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: TELCO statistics (individual TELCO node)**
+            if (telcoTransferCount > 0) {
+                double avgDataSize = telcoDataVolume / telcoTransferCount;
+                String csvRecord = String.format("TELCO,%.6f,%d,%.6f",
+                    telcoDataVolume, telcoTransferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // **NEW: TSO/Cloud statistics (individual TSO node)**
+            if (tsoTransferCount > 0) {
+                double avgDataSize = tsoDataVolume / tsoTransferCount;
+                String csvRecord = String.format("TSO,%.6f,%d,%.6f",
+                    tsoDataVolume, tsoTransferCount, avgDataSize);
+                networkUsageCsvRecords.add(csvRecord);
+            }
+            
+            // Write all records to CSV
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFileName))) {
+                writer.write(NETWORK_USAGE_CSV_HEADER);
+                writer.newLine();
+                for (String record : networkUsageCsvRecords) {
+                    writer.write(record);
+                    writer.newLine();
+                }
+            }
+            
+            System.out.println("CloudLogger - Network usage CSV saved: " + csvFileName);
+            
+        } catch (IOException e) {
+            System.err.println("CloudLogger - Error saving network usage CSV: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * **NEW: Helper method for Network Usage CSV file name**
+     */
+    private String getNetworkUsageCSVFileName() {
+        String baseFileName = simulationManager.getSimulationLogger().getFileName("");
+        return baseFileName + "_network_usage.csv";
     }
 } 

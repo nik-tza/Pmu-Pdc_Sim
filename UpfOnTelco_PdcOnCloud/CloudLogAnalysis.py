@@ -26,7 +26,7 @@ PMU_SETTINGS_DIR = "UpfOnTelco_PdcOnCloud/settings"
 SHOW_PLOTS = True
 
 # Output files
-SIMULATION_MAP_CHART = "pmu_simulation_map.png"
+SIMULATION_MAP_CHART = "cloud_simulation_map.png"
 
 def setup_logging(output_folder: str) -> logging.Logger:
     """Setup logging for the analysis."""
@@ -223,7 +223,7 @@ def read_pmu_positions_from_csv(simulation_folder: str) -> Tuple[List[Dict[str, 
                         
                         # **Extract GNB name, PMU->GNB time and distance**
                         if len(path_parts) >= 2:
-                            gnb_part = path_parts[1].strip()  # "GNB_1 (0.0060s, 42.9m)"
+                            gnb_part = path_parts[1].strip()  # "GNB_2 (0.0182s, 409.6m)"
                             # Updated regex to capture both time and distance
                             gnb_match = re.match(r'(GNB_\d+|GNB_Unknown)\s*\(([\d.]+)s,\s*([\d.]+)m\)', gnb_part)
                             if gnb_match:
@@ -268,7 +268,14 @@ def read_pmu_positions_from_csv(simulation_folder: str) -> Tuple[List[Dict[str, 
                         if telco_to_tso_distance is not None:
                             hop_times[pmu_id]['telco_to_tso_distances'].append(telco_to_tso_distance)
                         if gnb_name:
-                            hop_times[pmu_id]['gnb_name'] = gnb_name
+                            # Only set GNB name if not already set (keep the first one)
+                            if 'gnb_name' not in hop_times[pmu_id] or not hop_times[pmu_id]['gnb_name']:
+                                hop_times[pmu_id]['gnb_name'] = gnb_name
+                                # Debug print for first few entries
+                                if processed_entries <= 10:
+                                    print(f"🎯 PMU {pmu_id}: FIRST assignment to {gnb_name} (from path: {path})")
+                            elif processed_entries <= 10:
+                                print(f"🔄 PMU {pmu_id}: keeping original assignment to {hop_times[pmu_id]['gnb_name']} (ignoring {gnb_name})")
                     
                     # **If we haven't seen this PMU ID before, store its position**
                     if pmu_id not in seen_pmu_ids:
@@ -841,6 +848,249 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
     logger.info(f"PMU simulation map saved at: {output_path}")
     print(f"PMU simulation map created: {output_path}")
 
+def generate_network_usage_charts(simulation_folder: str, logger: logging.Logger):
+    """Generate network bandwidth usage charts from network usage CSV."""
+    logger.info("Generating network bandwidth usage charts...")
+    
+    try:
+        # Look for network usage CSV file
+        network_csv = None
+        for file in os.listdir(simulation_folder):
+            if file.endswith("_network_usage.csv") or file == "Sequential_simulation_network_usage.csv":
+                network_csv = os.path.join(simulation_folder, file)
+                break
+        
+        if not network_csv or not os.path.exists(network_csv):
+            print("⚠️  Network usage CSV not found - skipping network charts")
+            return
+        
+        print(f"📊 Found network usage CSV: {network_csv}")
+        
+        # Read network usage data
+        import pandas as pd
+        df_network = pd.read_csv(network_csv)
+        
+        # Create network usage charts
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+        fig.suptitle('Cloud Network Bandwidth Usage Analysis', fontsize=16, fontweight='bold')
+        
+        # Define order of data flow and colors (for cloud scenario: PMU->GNB->TELCO->TSO)
+        ordered_levels = ['PMU_to_GNB', 'GNB_to_TELCO', 'TELCO_to_TSO']
+        level_colors = ['blue', 'lightcoral', 'orange']
+        
+        # Chart 1: Data Flow Sequence with Control Data (top left)
+        if not df_network.empty:
+            # Get data in proper order
+            ordered_volumes = []
+            control_data = []  # Control data for each layer
+            labels = []
+            
+            # Fixed control data size for all layers (constant overhead)
+            CONTROL_DATA_SIZE = 2.0  # KB - fixed control overhead per layer
+            TSO_CONTROL_SIZE = 0.5   # KB - control data for TSO processing
+            
+            for level in ordered_levels:
+                if level in df_network['NetworkLevel'].values:
+                    volume = df_network[df_network['NetworkLevel'] == level]['TotalDataVolumeKB'].iloc[0]
+                    ordered_volumes.append(volume)
+                    
+                    if level == 'TELCO_to_TSO':
+                        control_data.append(TSO_CONTROL_SIZE)  # TSO has processing control data
+                    else:
+                        control_data.append(CONTROL_DATA_SIZE)  # Fixed control data for network layers
+                    
+                    # Create readable labels
+                    if level == 'PMU_to_GNB':
+                        labels.append('PMU→GNB')
+                    elif level == 'GNB_to_TELCO':
+                        labels.append('GNB→TELCO')
+                    elif level == 'TELCO_to_TSO':
+                        labels.append('TELCO→TSO')
+                    else:
+                        labels.append(level.replace('_', ' '))
+                else:
+                    ordered_volumes.append(0)
+                    control_data.append(0)
+                    if level == 'PMU_to_GNB':
+                        labels.append('PMU→GNB')
+                    elif level == 'GNB_to_TELCO':
+                        labels.append('GNB→TELCO')
+                    elif level == 'TELCO_to_TSO':
+                        labels.append('TELCO→TSO')
+                    else:
+                        labels.append(level.replace('_', ' '))
+            
+            # Create stacked bars with control data
+            extended_colors = level_colors[:len(labels)]
+            extended_dark_colors = ['darkblue', 'darkred', 'darkorange']
+            
+            bars1_main = ax1.bar(labels, ordered_volumes, color=extended_colors, label='Main Data')
+            bars1_control = ax1.bar(labels, control_data, bottom=ordered_volumes, 
+                                  color=extended_dark_colors[:len(labels)], 
+                                  label='Control Data', alpha=0.8)
+            
+            ax1.set_title('Cloud Data Flow Sequence (PMU→GNB→TELCO→TSO)', fontweight='bold')
+            ax1.set_xlabel('Data Flow Step')
+            ax1.set_ylabel('Data Volume (KB)')
+            ax1.grid(True, alpha=0.3)
+            ax1.legend(loc='upper right', fontsize=8)
+            
+            # Add total value labels on top of bars
+            for i, (main_vol, ctrl_vol) in enumerate(zip(ordered_volumes, control_data)):
+                total = main_vol + ctrl_vol
+                if total > 0:
+                    ax1.text(i, total + total*0.02, f'{total:.1f} KB', 
+                            ha='center', va='bottom', fontsize=9, fontweight='bold')
+        
+        # Chart 2: Network Infrastructure Data Distribution (top right)
+        # Map data to network infrastructure layers for cloud scenario
+        layer_data = {
+            'Cellular': 0,  # PMU to GNB
+            'GNBs': 0,      # GNB processing
+            'TELCO': 0,     # TELCO processing  
+            'TSO Cloud': 0  # TSO cloud processing
+        }
+        layer_control = {
+            'Cellular': CONTROL_DATA_SIZE,  # Fixed control data
+            'GNBs': CONTROL_DATA_SIZE,      # GNB control data
+            'TELCO': CONTROL_DATA_SIZE,     # TELCO control data
+            'TSO Cloud': TSO_CONTROL_SIZE   # TSO processing control data
+        }
+        
+        if not df_network.empty:
+            for _, row in df_network.iterrows():
+                level = row['NetworkLevel']
+                volume = row['TotalDataVolumeKB']
+                
+                if level == 'PMU_to_GNB':
+                    layer_data['Cellular'] += volume
+                elif level == 'GNB_to_TELCO':
+                    layer_data['GNBs'] += volume
+                    layer_data['TELCO'] += volume  # TELCO also handles this data
+                elif level == 'TELCO_to_TSO':
+                    layer_data['TSO Cloud'] += volume
+        
+        layer_names = list(layer_data.keys())
+        layer_volumes = list(layer_data.values())
+        layer_ctrl_volumes = list(layer_control.values())
+        layer_colors_infra = ['blue', 'lightcoral', 'orange', 'purple']
+        layer_ctrl_colors = ['darkblue', 'darkred', 'darkorange', 'darkmagenta']
+        
+        bars2_main = ax2.bar(layer_names, layer_volumes, color=layer_colors_infra, label='Data Traffic')
+        bars2_control = ax2.bar(layer_names, layer_ctrl_volumes, bottom=layer_volumes, 
+                              color=layer_ctrl_colors, label='Control Data', alpha=0.8)
+        
+        ax2.set_title('Cloud Network Infrastructure Data Distribution', fontweight='bold')
+        ax2.set_xlabel('Network Layer')
+        ax2.set_ylabel('Data Volume (KB)')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(loc='upper right', fontsize=8)
+        
+        # Add total value labels
+        for i, (main_vol, ctrl_vol) in enumerate(zip(layer_volumes, layer_ctrl_volumes)):
+            total = main_vol + ctrl_vol
+            if total > 0:
+                ax2.text(i, total + total*0.02, f'{total:.1f} KB', 
+                        ha='center', va='bottom', fontsize=9, fontweight='bold')
+        
+        # Chart 3: GNB Data Volume Distribution (bottom left)
+        if not df_network.empty:
+            # Extract GNB data volumes from CSV
+            gnb_names = []
+            gnb_volumes = []
+            
+            # Find all GNB entries in the CSV
+            for _, row in df_network.iterrows():
+                level = row['NetworkLevel']
+                if level.startswith('GNB_'):
+                    gnb_names.append(level)
+                    gnb_volumes.append(row['TotalDataVolumeKB'])
+            
+            # Sort by GNB number for consistent ordering
+            if gnb_names and gnb_volumes:
+                # Extract GNB numbers for sorting
+                gnb_data = list(zip(gnb_names, gnb_volumes))
+                gnb_data.sort(key=lambda x: int(x[0].split('_')[1]) if x[0].split('_')[1].isdigit() else 999)
+                gnb_names, gnb_volumes = zip(*gnb_data)
+                gnb_names = list(gnb_names)
+                gnb_volumes = list(gnb_volumes)
+                
+                # Create color scheme for GNBs (different shades of blue/green)
+                gnb_colors = plt.cm.Set3(np.linspace(0, 1, len(gnb_names)))
+                
+                # Create bar chart for GNB data volumes
+                bars3 = ax3.bar(gnb_names, gnb_volumes, color=gnb_colors)
+                
+                ax3.set_title('GNB Data Volume Distribution', fontweight='bold')
+                ax3.set_xlabel('GNB ID')
+                ax3.set_ylabel('Total Data Volume (KB)')
+                ax3.grid(True, alpha=0.3)
+                
+                # Add value labels on top of bars
+                for bar, volume in zip(bars3, gnb_volumes):
+                    height = bar.get_height()
+                    ax3.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                            f'{volume:.0f} KB', ha='center', va='bottom', 
+                            fontsize=9, fontweight='bold')
+                
+                # Rotate x-axis labels if too many GNBs
+                if len(gnb_names) > 6:
+                    ax3.tick_params(axis='x', rotation=45)
+            else:
+                # No GNB data found - show empty chart with message
+                ax3.text(0.5, 0.5, 'No GNB Data Found', ha='center', va='center', 
+                        transform=ax3.transAxes, fontsize=12, color='gray')
+                ax3.set_title('GNB Data Volume Distribution', fontweight='bold')
+                ax3.set_xlabel('GNB ID')
+                ax3.set_ylabel('Total Data Volume (KB)')
+        
+        # Chart 4: Cloud Processing Distribution Pie Chart (bottom right)
+        if not df_network.empty:
+            # Use infrastructure layer data for pie chart
+            pie_labels = []
+            pie_sizes = []
+            pie_colors = []
+            
+            for layer, volume in layer_data.items():
+                if volume > 0:
+                    pie_labels.append(layer)
+                    pie_sizes.append(volume)
+            
+            if pie_sizes:
+                # Use colors matching the infrastructure chart
+                pie_colors = layer_colors_infra[:len(pie_labels)]
+                
+                # Create pie chart
+                wedges, texts, autotexts = ax4.pie(pie_sizes, labels=pie_labels, colors=pie_colors,
+                                                  autopct='%1.1f%%', startangle=90)
+                
+                ax4.set_title('Cloud Infrastructure Data Distribution', fontweight='bold')
+                
+                # Enhance text readability
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_fontweight('bold')
+            else:
+                # No data for pie chart
+                ax4.text(0.5, 0.5, 'No Data Available', ha='center', va='center', 
+                        transform=ax4.transAxes, fontsize=12, color='gray')
+                ax4.set_title('Cloud Infrastructure Data Distribution', fontweight='bold')
+        
+        # Adjust layout and save
+        plt.tight_layout()
+        
+        # Save the charts
+        output_path = os.path.join(simulation_folder, "network_bandwidth_usage_charts.png")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        logger.info(f"Network bandwidth usage charts saved at: {output_path}")
+        print(f"📊 Network bandwidth usage charts created: {output_path}")
+        
+    except Exception as e:
+        logger.error(f"Error creating network usage charts: {str(e)}")
+        print(f"❌ Error creating network usage charts: {e}")
+
 def analyze_pmu_simulation(output_folder: str):
     """Main analysis function for PMU simulation data."""
     simulation_folder = os.path.join(BASE_OUTPUT_DIR, output_folder)
@@ -854,6 +1104,9 @@ def analyze_pmu_simulation(output_folder: str):
     try:
         # Create the simulation map
         create_simulation_map(simulation_folder, logger)
+        
+        # **Generate network bandwidth usage charts**
+        generate_network_usage_charts(simulation_folder, logger)
         
         # **NEW: Create performance analysis charts**
         create_performance_charts(simulation_folder, logger)
@@ -1477,7 +1730,7 @@ def export_statistics_to_csv(simulation_folder: str, logger: logging.Logger):
         return None
 
 def create_performance_charts(simulation_folder: str, logger: logging.Logger):
-    """Create performance analysis charts with 4 subplots showing PMU and GNB statistics."""
+    """Create performance analysis charts with 4 subplots showing PMU and TSO statistics."""
     if not SHOW_PLOTS:
         return
     
@@ -1503,6 +1756,7 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
         # **Chart 1: PMU Success Rate (πάνω αριστερά - πράσινο)**
         pmu_ids = sorted(accurate_pmu_stats.keys())
         pmu_success_rates = []
+        pmu_labels = []
         
         for pmu_id in pmu_ids:
             stats = accurate_pmu_stats[pmu_id]
@@ -1510,30 +1764,50 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
             total_count = stats['total']
             success_rate = (ok_count / total_count) * 100 if total_count > 0 else 0
             pmu_success_rates.append(success_rate)
+            pmu_labels.append(f'{pmu_id:02d}')
         
-        ax1.bar([f'PMU_{pmu_id:02d}' for pmu_id in pmu_ids], pmu_success_rates, 
-                color='green', alpha=0.7, edgecolor='darkgreen', linewidth=1)
-        ax1.set_xlabel('PMU ID', fontweight='bold')
-        ax1.set_ylabel('Success Rate (%)', fontweight='bold')
-        ax1.set_title('PMU Success Rate', fontweight='bold')
+        bars1 = ax1.bar(pmu_labels, pmu_success_rates, color='green')
+        ax1.set_title('PMU Transfer Success Rate', fontweight='bold')
+        ax1.set_xlabel('PMU ID')
+        ax1.set_ylabel('Success Rate (%)')
+        ax1.set_ylim(0, 105)
         ax1.grid(True, alpha=0.3)
-        ax1.tick_params(axis='x', rotation=45)
+        
+        # Add value labels on bars
+        for bar, rate in zip(bars1, pmu_success_rates):
+            height = bar.get_height()
+            ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
+                    f'{rate:.1f}%', ha='center', va='bottom', fontsize=8)
+        
+        # Rotate x-axis labels if too many PMUs
+        if len(pmu_ids) > 10:
+            ax1.tick_params(axis='x', rotation=45)
         
         # **Chart 2: PMU Average Transfer Delay (πάνω δεξιά - μπλε)**
         pmu_avg_delays = []
+        pmu_delay_labels = []
         
         for pmu_id in pmu_ids:
             stats = accurate_pmu_stats[pmu_id]
             avg_delay = stats.get('avg_hop_sum', 0.0)
             pmu_avg_delays.append(avg_delay)
+            pmu_delay_labels.append(f'{pmu_id:02d}')
         
-        ax2.bar([f'PMU_{pmu_id:02d}' for pmu_id in pmu_ids], pmu_avg_delays, 
-                color='blue', alpha=0.7, edgecolor='darkblue', linewidth=1)
-        ax2.set_xlabel('PMU ID', fontweight='bold')
-        ax2.set_ylabel('Average Transfer Delay (s)', fontweight='bold')
+        bars2 = ax2.bar(pmu_delay_labels, pmu_avg_delays, color='blue')
         ax2.set_title('PMU Average Transfer Delay', fontweight='bold')
+        ax2.set_xlabel('PMU ID')
+        ax2.set_ylabel('Average Transfer Delay (s)')
         ax2.grid(True, alpha=0.3)
-        ax2.tick_params(axis='x', rotation=45)
+        
+        # Add value labels on bars
+        for bar, delay in zip(bars2, pmu_avg_delays):
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                    f'{delay:.3f}s', ha='center', va='bottom', fontsize=8)
+        
+        # Rotate x-axis labels if too many PMUs
+        if len(pmu_ids) > 10:
+            ax2.tick_params(axis='x', rotation=45)
         
         # **Chart 3: GNB Success Rate (κάτω αριστερά - κόκκινο)**
         gnb_names = sorted(accurate_gnb_stats.keys())
@@ -1546,39 +1820,76 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
             success_rate = (ok_count / total_count) * 100 if total_count > 0 else 0
             gnb_success_rates.append(success_rate)
         
-        ax3.bar(gnb_names, gnb_success_rates, 
-                color='red', alpha=0.7, edgecolor='darkred', linewidth=1)
-        ax3.set_xlabel('GNB ID', fontweight='bold')
-        ax3.set_ylabel('Success Rate (%)', fontweight='bold')
-        ax3.set_title('GNB Success Rate', fontweight='bold')
+        bars3 = ax3.bar(gnb_names, gnb_success_rates, color='red')
+        ax3.set_title('GNB Transfer Success Rate', fontweight='bold')
+        ax3.set_xlabel('GNB ID')
+        ax3.set_ylabel('Success Rate (%)')
+        ax3.set_ylim(0, 105)
         ax3.grid(True, alpha=0.3)
-        ax3.tick_params(axis='x', rotation=45)
         
-        # **Chart 4: GNB Average Time to GNB (κάτω δεξιά - πορτοκαλί)**
-        gnb_avg_times = []
+        # Add value labels on bars
+        for bar, rate in zip(bars3, gnb_success_rates):
+            height = bar.get_height()
+            ax3.text(bar.get_x() + bar.get_width()/2., height + 1,
+                    f'{rate:.1f}%', ha='center', va='bottom', fontsize=10)
         
-        for gnb_name in gnb_names:
-            # Calculate average time to this GNB from all its PMUs
-            gnb_times = []
-            for pmu_id, pmu_stats in accurate_pmu_stats.items():
-                if pmu_stats['gnb_name'] == gnb_name:
-                    avg_time_to_gnb = pmu_to_gnb_avg_times.get(pmu_id, 0.0)
-                    if avg_time_to_gnb > 0:
-                        gnb_times.append(avg_time_to_gnb)
+        # **Chart 4: TSO Average Timings (κάτω δεξιά - Stacked bar chart)**
+        # Read state estimation CSV to get TSO execution times
+        state_csv = None
+        for file in os.listdir(simulation_folder):
+            if file.endswith("_state_estimation.csv") or file == "Sequential_simulation_state_estimation.csv":
+                state_csv = os.path.join(simulation_folder, file)
+                break
+        
+        if state_csv and os.path.exists(state_csv):
+            import pandas as pd
+            df_state = pd.read_csv(state_csv)
             
-            avg_gnb_time = sum(gnb_times) / len(gnb_times) if gnb_times else 0.0
-            gnb_avg_times.append(avg_gnb_time)
-        
-        ax4.bar(gnb_names, gnb_avg_times, 
-                color='orange', alpha=0.7, edgecolor='darkorange', linewidth=1)
-        ax4.set_xlabel('GNB ID', fontweight='bold')
-        ax4.set_ylabel('Average Time to GNB (s)', fontweight='bold')
-        ax4.set_title('GNB Average Time to GNB', fontweight='bold')
-        ax4.grid(True, alpha=0.3)
-        ax4.tick_params(axis='x', rotation=45)
+            # **For cloud scenario, all processing happens at TSO**
+            # Calculate average times for TSO processing
+            avg_exec_time = df_state['ExecTime'].mean() if 'ExecTime' in df_state.columns else 0.0
+            avg_pdc_waiting = df_state['PDCWaitingTime'].mean() if 'PDCWaitingTime' in df_state.columns else 0.0
+            avg_total_time = df_state['TotalTime'].mean() if 'TotalTime' in df_state.columns else 0.0
+            
+            # Calculate network time (total - pdc waiting - execution)
+            avg_network_time = max(0, avg_total_time - avg_pdc_waiting - avg_exec_time)
+            
+            # Create single bar for TSO with stacked components
+            tso_names = ['TSO']
+            network_times = [avg_network_time]
+            pdc_times = [avg_pdc_waiting]
+            exec_times = [avg_exec_time]
+            
+            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time) with very narrow width like a thin candle
+            bars4_network = ax4.bar(tso_names, network_times, color='blue', label='Network Transfer Time', width=0.05)
+            bars4_pdc = ax4.bar(tso_names, pdc_times, bottom=network_times, color='lightcoral', label='PDC Waiting Time', width=0.05)
+            bars4_exec = ax4.bar(tso_names, exec_times, 
+                               bottom=[n + p for n, p in zip(network_times, pdc_times)], 
+                               color='orange', label='Execution Time', width=0.05)
+            
+            ax4.set_title('TSO Average Timings', fontweight='bold')
+            ax4.set_xlabel('Processing Node')
+            ax4.set_ylabel('Average Time (s)')
+            ax4.grid(True, alpha=0.3)
+            ax4.legend(loc='upper right', fontsize=8)
+            # Set x-axis limits to make the bar appear as a narrow candle in the center
+            ax4.set_xlim(-0.8, 0.8)
+            
+            # Add total time label on top of bar
+            if avg_total_time > 0:
+                ax4.text(0, avg_total_time + avg_total_time*0.02,
+                        f'{avg_total_time:.4f}s', ha='center', va='bottom', fontsize=11, fontweight='bold')
+        else:
+            # No state estimation data - show empty chart
+            ax4.text(0.5, 0.5, 'No TSO Data Available', ha='center', va='center', 
+                    transform=ax4.transAxes, fontsize=12, color='gray')
+            ax4.set_title('TSO Average Timings', fontweight='bold')
+            ax4.set_xlabel('Processing Node')
+            ax4.set_ylabel('Average Time (s)')
         
         # Adjust layout and save
         plt.tight_layout()
+        plt.subplots_adjust(top=0.93)  # Make room for suptitle
         
         # Save the charts
         output_path = os.path.join(simulation_folder, "performance_analysis_charts.png")
@@ -1591,231 +1902,6 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
     except Exception as e:
         logger.error(f"Error creating performance charts: {str(e)}")
         print(f"❌ Error creating performance charts: {e}")
-
-def create_simulation_map(simulation_folder: str, logger: logging.Logger):
-    """Create the PMU simulation map showing GNBs, PMUs, TELCO and connections."""
-    if not SHOW_PLOTS:
-        return
-    
-    logger.info("Creating PMU simulation map...")
-    
-    # Read configuration data
-    params = read_simulation_parameters()
-    datacenters = parse_edge_datacenters_xml()
-    links = parse_network_links_xml()
-    pmus, hop_averages = read_pmu_positions_from_csv(simulation_folder)
-    
-    # Get PMU count for map title
-    max_pmus = params['max_edge_devices']
-    
-    # Create the plot
-    plt.figure(figsize=(16, 16))
-    ax = plt.gca()
-    
-    # Constants for visualization
-    COVERAGE_RADIUS = params['edge_datacenters_coverage']
-    DATACENTER_RADIUS = 60.0  # Increased by 4x (from 15.0)
-    PMU_SIZE = 25.0
-    TSO_SIZE = 120.0  # Increased to be twice the size of EDGE datacenters
-    TELCO_SIZE = 140.0  # Increased to be slightly larger than TSO
-    
-    # Colors
-    colors = plt.cm.Set3(np.linspace(0, 1, len(datacenters)))
-    
-    # Plot edge datacenters (GNBs and TELCO)
-    datacenter_positions = {}
-    for i, datacenter in enumerate(datacenters):
-        x, y = datacenter['x'], datacenter['y']
-        name = datacenter['name']
-        datacenter_positions[name] = (x, y)
-        
-        # Choose color and shape based on type
-        if name == "TELCO":
-            color = 'red'
-            # Create hexagon for TELCO
-            hexagon = plt.Polygon([
-                (x - TELCO_SIZE, y),
-                (x - TELCO_SIZE/2, y + TELCO_SIZE*0.866),
-                (x + TELCO_SIZE/2, y + TELCO_SIZE*0.866),
-                (x + TELCO_SIZE, y),
-                (x + TELCO_SIZE/2, y - TELCO_SIZE*0.866),
-                (x - TELCO_SIZE/2, y - TELCO_SIZE*0.866)
-            ], color=color, alpha=0.9, ec='black', linewidth=2)
-            ax.add_patch(hexagon)
-        else:
-            color = colors[i]
-            # Regular circle for EDGE datacenters
-            datacenter_circle = plt.Circle((x, y), DATACENTER_RADIUS, 
-                                         color=color, 
-                                         alpha=0.8,
-                                         ec='black',
-                                         linewidth=2)
-            ax.add_patch(datacenter_circle)
-        
-        # Plot coverage area (only for peripheral edge datacenters)
-        if datacenter['periphery']:
-            coverage = plt.Circle((x, y), COVERAGE_RADIUS, 
-                                color=color, alpha=0.15, linestyle='--')
-            ax.add_patch(coverage)
-        
-        # Add label
-        plt.annotate(name, (x, y), xytext=(5, 5), textcoords='offset points',
-                   fontweight='bold', fontsize=12, 
-                   bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
-    
-    # Add TSO cloud datacenter (positioned above the map)
-    tso_x = params['length'] / 2
-    tso_y = params['width'] + 100
-    datacenter_positions['TSO'] = (tso_x, tso_y)
-    
-    # Create octagon for TSO
-    tso_octagon = plt.Polygon([
-        (tso_x - TSO_SIZE, tso_y),
-        (tso_x - TSO_SIZE*0.707, tso_y + TSO_SIZE*0.707),
-        (tso_x, tso_y + TSO_SIZE),
-        (tso_x + TSO_SIZE*0.707, tso_y + TSO_SIZE*0.707),
-        (tso_x + TSO_SIZE, tso_y),
-        (tso_x + TSO_SIZE*0.707, tso_y - TSO_SIZE*0.707),
-        (tso_x, tso_y - TSO_SIZE),
-        (tso_x - TSO_SIZE*0.707, tso_y - TSO_SIZE*0.707)
-    ], color='blue', alpha=0.9, ec='black', linewidth=2)
-    ax.add_patch(tso_octagon)
-    
-    plt.annotate('TSO (Cloud)', (tso_x, tso_y), xytext=(5, 5), textcoords='offset points',
-               fontweight='bold', fontsize=14,
-               bbox=dict(boxstyle="round,pad=0.3", facecolor='lightblue', alpha=0.9))
-    
-    # **NEW: Create a mapping from GNB names to Edge datacenter positions**
-    gnb_to_edge_mapping = {}
-    for datacenter in datacenters:
-        if datacenter['name'].startswith('EDGE_'):
-            edge_id = datacenter['name'].split('_')[1]
-            gnb_name = f"GNB_{edge_id}"
-            gnb_to_edge_mapping[gnb_name] = (datacenter['x'], datacenter['y'])
-    
-    # Plot PMUs as squares and connect to their assigned GNB (not EDGE)
-    for pmu in pmus:
-        x, y = pmu['x'], pmu['y']
-        pmu_id = pmu['id']
-        
-        # Plot PMU as a square
-        pmu_square = plt.Rectangle((x - PMU_SIZE/2, y - PMU_SIZE/2), PMU_SIZE, PMU_SIZE,
-                                 color='green', alpha=0.8, ec='darkgreen', linewidth=2)
-        ax.add_patch(pmu_square)
-        
-        # Add PMU label
-        plt.annotate(f'PMU_{pmu_id}', (x, y), xytext=(15, 15), textcoords='offset points',
-                   fontsize=10, fontweight='bold', color='darkgreen',
-                   bbox=dict(boxstyle="round,pad=0.2", facecolor='lightgreen', alpha=0.7))
-        
-        # **Connect PMU to its assigned GNB with dashed lines and average times + distances**
-        if pmu_id in hop_averages:
-            gnb_name = hop_averages[pmu_id]['gnb_name']
-            avg_time = hop_averages[pmu_id]['gnb']
-            avg_distance = hop_averages[pmu_id]['gnb_distance']
-            sample_count = hop_averages[pmu_id]['gnb_count']
-            
-            if gnb_name in gnb_to_edge_mapping:
-                gnb_x, gnb_y = gnb_to_edge_mapping[gnb_name]
-                
-                # Draw dashed connection line between PMU and GNB
-                plt.plot([x, gnb_x], [y, gnb_y], 'gray', linestyle='--', 
-                        linewidth=2, alpha=0.7)
-                
-                # **Add average time and distance label on the connection**
-                mid_x = (x + gnb_x) / 2
-                mid_y = (y + gnb_y) / 2
-                plt.annotate(f'{avg_time:.3f}s\n{avg_distance:.0f}m', 
-                           (mid_x, mid_y), 
-                           xytext=(0, 5), textcoords='offset points',
-                           fontsize=7, fontweight='bold', color='blue',
-                           ha='center', va='bottom',
-                           bbox=dict(boxstyle="round,pad=0.1", facecolor='lightblue', alpha=0.7))
-    
-    # **NEW: Plot network connections between datacenters with average timing**
-    # Calculate average GNB->TELCO and TELCO->TSO times across all PMUs
-    gnb_to_telco_times = []
-    telco_to_tso_times = []
-    
-    for pmu_id, averages in hop_averages.items():
-        if averages['gnb_to_telco'] > 0:
-            gnb_to_telco_times.append(averages['gnb_to_telco'])
-        if averages['telco_to_tso'] > 0:
-            telco_to_tso_times.append(averages['telco_to_tso'])
-    
-    avg_gnb_to_telco = sum(gnb_to_telco_times) / len(gnb_to_telco_times) if gnb_to_telco_times else 0.0
-    avg_telco_to_tso = sum(telco_to_tso_times) / len(telco_to_tso_times) if telco_to_tso_times else 0.0
-    
-    for link in links:
-        from_node = link['from']
-        to_node = link['to']
-        
-        # Get positions
-        from_pos = datacenter_positions.get(from_node)
-        to_pos = datacenter_positions.get(to_node)
-        
-        if from_pos and to_pos:
-            x1, y1 = from_pos
-            x2, y2 = to_pos
-            
-            # Draw connection line
-            plt.plot([x1, x2], [y1, y2], 'purple', linestyle='-', 
-                    linewidth=3, alpha=0.7)
-            
-            # **Add average timing labels on network links**
-            mid_x = (x1 + x2) / 2
-            mid_y = (y1 + y2) / 2
-            
-            # Determine which average to show based on connection type
-            if to_node == "TELCO" and from_node.startswith("EDGE_"):
-                # GNB->TELCO connection
-                plt.annotate(f'{avg_gnb_to_telco:.3f}s', (mid_x, mid_y), 
-                           xytext=(3, 3), textcoords='offset points',
-                           fontsize=7, fontweight='bold', color='purple',
-                           ha='center', va='center',
-                           bbox=dict(boxstyle="round,pad=0.1", facecolor='plum', alpha=0.7))
-            elif from_node == "TELCO" and to_node == "TSO":
-                # TELCO->TSO connection
-                plt.annotate(f'{avg_telco_to_tso:.3f}s', (mid_x, mid_y), 
-                           xytext=(3, 3), textcoords='offset points',
-                           fontsize=7, fontweight='bold', color='purple',
-                           ha='center', va='center',
-                           bbox=dict(boxstyle="round,pad=0.1", facecolor='plum', alpha=0.7))
-    
-    # Plot settings
-    plt.grid(True, linestyle='--', alpha=0.3)
-    plt.xlabel('X Coordinate (meters)', fontsize=12)
-    plt.ylabel('Y Coordinate (meters)', fontsize=12)
-    plt.title(f'PMU Smart Grid Simulation Map\n{max_pmus} PMU Sensors, GNBs, TELCO and TSO Cloud', 
-              fontsize=16, fontweight='bold')
-    
-    # Create legend
-    legend_elements = [
-        plt.Rectangle((0, 0), 1, 1, color='green', alpha=0.8, label='PMU Sensors'),
-        plt.Circle((0, 0), 1, color='gray', alpha=0.8, label='Edge Datacenters (GNBs)'),
-        plt.Polygon([(0, 0), (0.5, 0.866), (1, 0), (0.5, -0.866)], color='red', alpha=0.9, label='TELCO Hub'),
-        plt.Polygon([(0, 0), (0.707, 0.707), (1, 0), (0.707, -0.707), (0, -1), (-0.707, -0.707), (-1, 0), (-0.707, 0.707)], 
-                   color='blue', alpha=0.9, label='TSO Cloud'),
-        plt.Line2D([0], [0], color='purple', linewidth=3, alpha=0.7, label='Network Links'),
-        plt.Line2D([0], [0], color='gray', linestyle='--', alpha=0.5, label='PMU-EDGE Links'),
-        plt.Circle((0, 0), 1, color='gray', alpha=0.15, label='Coverage Area')
-    ]
-    
-    plt.legend(handles=legend_elements, loc='upper right', fontsize=10)
-    
-    # Set plot limits
-    ax.set_aspect('equal')
-    margin = 200
-    plt.xlim(-margin, params['length'] + margin)
-    plt.ylim(-margin, params['width'] + margin + 200)  # Extra space for TSO
-    
-    # Save the plot
-    output_path = os.path.join(simulation_folder, SIMULATION_MAP_CHART)
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    logger.info(f"PMU simulation map saved at: {output_path}")
-    print(f"PMU simulation map created: {output_path}")
 
 def main():
     """Main entry point for the PMU analysis script."""
