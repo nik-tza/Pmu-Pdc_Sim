@@ -1,0 +1,106 @@
+
+=== PMU SMART GRID SIMULATION STATISTICS ===
+Date: 2025-07-31 15:43:48
+Simulation Folder: 2025-07-31_15-43-14
+
+PMU CONFIGURATION:
+- Total PMUs: 30
+- Simulation Area: 2000m x 2000m
+- Edge Coverage: 800.0m
+
+
+=== PMU DATA TRANSFER STATISTICS ===
+
+DATA SIZE STATISTICS:
+- Average Data Size: 2.00 KB
+- Minimum Data Size: 2.00 KB
+- Maximum Data Size: 2.00 KB
+- Standard Deviation: 0.00 KB
+- Total Data Volume: 26676.00 KB
+
+HOP-BY-HOP AVERAGE TIMING AND DISTANCES:
+- PMU → GNB: 0.0094s (avg distance: 345.9m)
+- GNB → TELCO: 0.0375s (avg distance: 638.7m)  
+- TELCO → TSO: 0.0758s (avg distance: 1415.6m)
+- Total Path: 0.1227s (total distance: 2400.2m)
+
+
+DEADLINE MISSED SUMMARY:
+- Total Deadline Missed: 0/0 (0.00%)
+- PMUs with Deadline Misses: 30/30
+
+DETAILED SUCCESSFUL TRANSFERS PER PMU (ALL PMUs):
+  PMU_00 → GNB_3: 538/611 transfers on time ( 88.1%) - avg time to GNB: 0.0092s, avg time to TSO: 0.1222s
+  PMU_01 → GNB_3: 544/612 transfers on time ( 88.9%) - avg time to GNB: 0.0086s, avg time to TSO: 0.1223s
+  PMU_02 → GNB_6: 536/612 transfers on time ( 87.6%) - avg time to GNB: 0.0091s, avg time to TSO: 0.1225s
+  PMU_03 → GNB_5: 542/612 transfers on time ( 88.6%) - avg time to GNB: 0.0093s, avg time to TSO: 0.1237s
+  PMU_04 → GNB_2: 543/612 transfers on time ( 88.7%) - avg time to GNB: 0.0088s, avg time to TSO: 0.1229s
+  PMU_05 → GNB_2: 543/612 transfers on time ( 88.7%) - avg time to GNB: 0.0098s, avg time to TSO: 0.1223s
+  PMU_06 → GNB_1: 533/612 transfers on time ( 87.1%) - avg time to GNB: 0.0089s, avg time to TSO: 0.1221s
+  PMU_07 → GNB_6: 540/612 transfers on time ( 88.2%) - avg time to GNB: 0.0084s, avg time to TSO: 0.1221s
+  PMU_08 → GNB_3: 538/612 transfers on time ( 87.9%) - avg time to GNB: 0.0089s, avg time to TSO: 0.1233s
+  PMU_09 → GNB_5: 538/611 transfers on time ( 88.1%) - avg time to GNB: 0.0090s, avg time to TSO: 0.1227s
+  PMU_10 → GNB_4: 537/611 transfers on time ( 87.9%) - avg time to GNB: 0.0078s, avg time to TSO: 0.1216s
+  PMU_11 → GNB_3: 548/611 transfers on time ( 89.7%) - avg time to GNB: 0.0082s, avg time to TSO: 0.1219s
+  PMU_12 → GNB_3: 536/611 transfers on time ( 87.7%) - avg time to GNB: 0.0092s, avg time to TSO: 0.1232s
+  PMU_13 → GNB_6: 534/611 transfers on time ( 87.4%) - avg time to GNB: 0.0101s, avg time to TSO: 0.1235s
+  PMU_14 → GNB_5: 540/611 transfers on time ( 88.4%) - avg time to GNB: 0.0098s, avg time to TSO: 0.1230s
+  PMU_15 → GNB_2: 538/611 transfers on time ( 88.1%) - avg time to GNB: 0.0091s, avg time to TSO: 0.1220s
+  PMU_16 → GNB_2: 540/611 transfers on time ( 88.4%) - avg time to GNB: 0.0087s, avg time to TSO: 0.1218s
+  PMU_17 → GNB_1: 534/611 transfers on time ( 87.4%) - avg time to GNB: 0.0100s, avg time to TSO: 0.1229s
+  PMU_18 → GNB_6: 543/611 transfers on time ( 88.9%) - avg time to GNB: 0.0097s, avg time to TSO: 0.1234s
+  PMU_19 → GNB_3: 546/611 transfers on time ( 89.4%) - avg time to GNB: 0.0091s, avg time to TSO: 0.1228s
+  PMU_20 → GNB_6: 29/111 transfers on time ( 26.1%) - avg time to GNB: 0.0091s, avg time to TSO: 0.1223s
+  PMU_21 → GNB_1: 36/111 transfers on time ( 32.4%) - avg time to GNB: 0.0088s, avg time to TSO: 0.1229s
+  PMU_22 → GNB_4: 41/111 transfers on time ( 36.9%) - avg time to GNB: 0.0112s, avg time to TSO: 0.1229s
+  PMU_23 → GNB_1: 35/111 transfers on time ( 31.5%) - avg time to GNB: 0.0087s, avg time to TSO: 0.1239s
+  PMU_24 → GNB_4: 36/111 transfers on time ( 32.4%) - avg time to GNB: 0.0099s, avg time to TSO: 0.1223s
+  PMU_25 → GNB_3: 45/111 transfers on time ( 40.5%) - avg time to GNB: 0.0077s, avg time to TSO: 0.1219s
+  PMU_26 → GNB_4: 45/111 transfers on time ( 40.5%) - avg time to GNB: 0.0089s, avg time to TSO: 0.1210s
+  PMU_27 → GNB_6: 26/111 transfers on time ( 23.4%) - avg time to GNB: 0.0110s, avg time to TSO: 0.1260s
+  PMU_28 → GNB_5: 36/111 transfers on time ( 32.4%) - avg time to GNB: 0.0077s, avg time to TSO: 0.1251s
+  PMU_29 → GNB_4: 49/111 transfers on time ( 44.1%) - avg time to GNB: 0.0085s, avg time to TSO: 0.1214s
+
+SUCCESSFUL TRANSFERS SUMMARY BY GNB:
+  GNB_1: 2213/2666 transfers on time (83.0%) from 4 PMUs - avg time to GNB: 0.0091s
+  GNB_2: 1869/2224 transfers on time (84.0%) from 4 PMUs - avg time to GNB: 0.0091s
+  GNB_3: 1501/1782 transfers on time (84.2%) from 7 PMUs - avg time to GNB: 0.0087s
+  GNB_4: 1503/1776 transfers on time (84.6%) from 5 PMUs - avg time to GNB: 0.0093s
+  GNB_5: 1869/2222 transfers on time (84.1%) from 4 PMUs - avg time to GNB: 0.0089s
+  GNB_6: 2214/2668 transfers on time (83.0%) from 6 PMUs - avg time to GNB: 0.0096s
+
+=== GRID ANALYSIS TASK STATISTICS ===
+
+GRID ANALYSIS TASK COMPLETION:
+- Total Tasks: 112
+- Successful: 112
+- Failed: 0
+- Success Rate: 100.00%
+
+EXECUTION TIME (Successful tasks only):
+- Average: 0.0067s
+- Minimum: 0.0067s
+- Maximum: 0.0067s
+- Standard Deviation: 0.0000s
+
+PDC WAITING TIME (All tasks):
+- Average: 0.0150s
+- Minimum: 0.0150s
+- Maximum: 0.0150s
+- Standard Deviation: 0.0000s
+
+TOTAL PROCESSING TIME (All tasks):
+- Average: 0.1249s
+- Minimum: 0.1075s
+- Maximum: 0.1371s
+
+BATCH INFORMATION:
+- Complete Batches: 0
+- Timeout Batches: 112
+- Complete Batch Rate: 0.00%
+- Average PDC Waiting Time: 0.0150s
+
+
+========================================
+Analysis completed: 2025-07-31 15:43:50
+========================================

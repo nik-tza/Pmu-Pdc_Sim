@@ -21,28 +21,79 @@ public class UpfTelcoNetworkModel extends DefaultNetworkModel {
     // Custom transfer type for UpfTelco measurement data
     public static final int SEND_UPFTELCO_DATA = 100;
     
-    // Jitter for realistic network variation
+    // Jitter for realistic network variation - loaded dynamically from properties
     private static final Random random = new Random();
-    private static final double CELLULAR_JITTER_MS = 5.0; // 5ms std jitter for cellular 
-    private static final double MAN_JITTER_MS = 2.0; // 2ms std jitter for MAN 
+    private static double CELLULAR_JITTER_MS = 5.0; // Default fallback value
+    private static double MAN_JITTER_MS = 2.0; // Default fallback value 
+    private static double WAN_JITTER_MS = 8.0; // Default fallback value 
     
     // Distance-based delay parameters
-    private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 5; // Reduced from 30 for realism
+    private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 4; //μs per meter
     private static final boolean ENABLE_DISTANCE_DELAYS = true; 
     private static final double DISTANCE_DELAY_FACTOR = DISTANCE_DELAY_MICROSECONDS_PER_METER / 1_000_000.0;
     
-    // PMU jitter enhancement for variation
-    private static final double PMU_JITTER_MULTIPLIER = 1.5; // Extra randomness for PMUs
+    // PMU jitter enhancement removed for consistency with other scenarios
     
     // Fixed UpfTelco data size (2KB)
     private static final double UPFTELCO_DATA_SIZE_BITS = 2.0 * 8192.0;
     
+    // Static block to load jitter values from properties file
+    static {
+        loadJitterParametersFromProperties();
+    }
+    
     public UpfTelcoNetworkModel(SimulationManager simulationManager) {
         super(simulationManager);
         System.out.println("UpfTelcoNetworkModel - 3-hop path: PMU → GNB → TELCO → GNB");
-        System.out.printf("UpfTelcoNetworkModel - Distance delays: %s (%.0fμs/m), PMU jitter x%.1f%n", 
+        System.out.printf("UpfTelcoNetworkModel - Distance delays: %s (%.0fμs/m), Jitter: C=%.1fms M=%.1fms W=%.1fms%n", 
                          ENABLE_DISTANCE_DELAYS ? "ENABLED" : "DISABLED", 
-                         DISTANCE_DELAY_MICROSECONDS_PER_METER, PMU_JITTER_MULTIPLIER);
+                         DISTANCE_DELAY_MICROSECONDS_PER_METER, CELLULAR_JITTER_MS, MAN_JITTER_MS, WAN_JITTER_MS);
+    }
+    
+    /**
+     * Load jitter parameters from simulation_parameters.properties file
+     */
+    private static void loadJitterParametersFromProperties() {
+        try {
+            java.util.Properties props = new java.util.Properties();
+            String propertiesPath = "UpfOnTelco_PdcOnEdge/settings/simulation_parameters.properties";
+            
+            // Try to load from file system
+            java.io.FileInputStream fis = null;
+            try {
+                fis = new java.io.FileInputStream(propertiesPath);
+                props.load(fis);
+                
+                // Load jitter values with fallback to defaults
+                String cellularJitterStr = props.getProperty("cellular_jitter_ms");
+                if (cellularJitterStr != null && !cellularJitterStr.trim().isEmpty()) {
+                    CELLULAR_JITTER_MS = Double.parseDouble(cellularJitterStr.trim());
+                }
+                
+                String manJitterStr = props.getProperty("man_jitter_ms");
+                if (manJitterStr != null && !manJitterStr.trim().isEmpty()) {
+                    MAN_JITTER_MS = Double.parseDouble(manJitterStr.trim());
+                }
+                
+                String wanJitterStr = props.getProperty("wan_jitter_ms");
+                if (wanJitterStr != null && !wanJitterStr.trim().isEmpty()) {
+                    WAN_JITTER_MS = Double.parseDouble(wanJitterStr.trim());
+                }
+                
+                System.out.printf("UpfTelcoNetworkModel - Loaded jitter from properties: C=%.1fms, M=%.1fms, W=%.1fms%n", 
+                                CELLULAR_JITTER_MS, MAN_JITTER_MS, WAN_JITTER_MS);
+                
+            } finally {
+                if (fis != null) {
+                    fis.close();
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("UpfTelcoNetworkModel - Failed to load jitter parameters from properties: " + e.getMessage());
+            System.err.println("UpfTelcoNetworkModel - Using default jitter values: C=" + CELLULAR_JITTER_MS + 
+                             "ms, M=" + MAN_JITTER_MS + "ms, W=" + WAN_JITTER_MS + "ms");
+        }
     }
     
     @Override
@@ -196,7 +247,7 @@ public class UpfTelcoNetworkModel extends DefaultNetworkModel {
             telcoNode, assignedGnb, false // isPmuToGnb = false (normal jitter)
         );
         
-        double totalDelay = upfTelcoToGnbTime + gnbToTelcoTime + telcoToGnbTime;
+        double totalDelay = gnbToTelcoTime + upfTelcoToGnbTime  + telcoToGnbTime;
         task.addActualNetworkTime(totalDelay);
         
         String gnbName = getGnbNameFromNode(assignedGnb);
@@ -214,19 +265,8 @@ public class UpfTelcoNetworkModel extends DefaultNetworkModel {
         // Basic transmission time
         double transmissionTime = dataSizeInBits / bandwidthBps;
         
-        // Apply jitter - enhanced for PMU variations like scenarios 1 & 3
-        double jitter;
-        if (isPmuToGnb) {
-            // Enhanced PMU jitter for network variation (like other scenarios)
-            jitter = random.nextGaussian() * jitterSigma * PMU_JITTER_MULTIPLIER;
-            
-            // Add extra PMU-specific randomness based on PMU ID 
-            Random pmuRandom = new Random(fromNode.getId());
-            jitter += pmuRandom.nextGaussian() * jitterSigma * 0.5; // Additional variation
-        } else {
-            // Normal jitter for GNB-TELCO communication
-            jitter = random.nextGaussian() * jitterSigma;
-        }
+        // Apply standard jitter - aligned with scenarios 1 & 3
+        double jitter = random.nextGaussian() * jitterSigma; // Standard Gaussian jitter
         
         double baseDelay = transmissionTime + baseLatency + jitter;
         

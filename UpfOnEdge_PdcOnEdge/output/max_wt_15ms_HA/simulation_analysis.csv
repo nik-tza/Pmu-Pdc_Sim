@@ -1,0 +1,73 @@
+Metric,Value
+=== PMU DATA TRANSFER STATISTICS ===,
+Total Data Volume,6678.00 KB
+,
+=== AVERAGE HOP DELAY AND DISTANCE (PMU → GNB) ===,
+Average Hop Delay,0.0095s
+Average Distance,332.3m
+Total PMU-GNB Connections,30
+,
+=== PMU DATA MISSED DEADLINE SUMMARY ===,
+PMU Data that Missed Deadline,155/3339 (4.64%)
+,
+=== DETAILED TRANSFERS PER PMU ===,
+PMU_00 → GNB_3,110/112 transfers on time (98.2%) - avg transfer delay: 0.0092s
+PMU_01 → GNB_3,111/112 transfers on time (99.1%) - avg transfer delay: 0.0095s
+PMU_02 → GNB_6,108/112 transfers on time (96.4%) - avg transfer delay: 0.0098s
+PMU_03 → GNB_5,109/112 transfers on time (97.3%) - avg transfer delay: 0.0093s
+PMU_04 → GNB_2,105/112 transfers on time (93.8%) - avg transfer delay: 0.0104s
+PMU_05 → GNB_2,108/112 transfers on time (96.4%) - avg transfer delay: 0.0089s
+PMU_06 → GNB_1,108/112 transfers on time (96.4%) - avg transfer delay: 0.0087s
+PMU_07 → GNB_6,106/112 transfers on time (94.6%) - avg transfer delay: 0.0093s
+PMU_08 → GNB_3,108/112 transfers on time (96.4%) - avg transfer delay: 0.0094s
+PMU_09 → GNB_1,106/111 transfers on time (95.5%) - avg transfer delay: 0.0086s
+PMU_10 → GNB_5,111/111 transfers on time (100.0%) - avg transfer delay: 0.0084s
+PMU_11 → GNB_5,103/111 transfers on time (92.8%) - avg transfer delay: 0.0109s
+PMU_12 → GNB_2,108/111 transfers on time (97.3%) - avg transfer delay: 0.0099s
+PMU_13 → GNB_1,103/111 transfers on time (92.8%) - avg transfer delay: 0.0096s
+PMU_14 → GNB_6,106/111 transfers on time (95.5%) - avg transfer delay: 0.0087s
+PMU_15 → GNB_1,108/111 transfers on time (97.3%) - avg transfer delay: 0.0084s
+PMU_16 → GNB_5,110/111 transfers on time (99.1%) - avg transfer delay: 0.0096s
+PMU_17 → GNB_2,106/111 transfers on time (95.5%) - avg transfer delay: 0.0095s
+PMU_18 → GNB_6,102/111 transfers on time (91.9%) - avg transfer delay: 0.0102s
+PMU_19 → GNB_2,106/111 transfers on time (95.5%) - avg transfer delay: 0.0094s
+PMU_20 → GNB_6,106/111 transfers on time (95.5%) - avg transfer delay: 0.0094s
+PMU_21 → GNB_1,103/111 transfers on time (92.8%) - avg transfer delay: 0.0105s
+PMU_22 → GNB_4,106/111 transfers on time (95.5%) - avg transfer delay: 0.0097s
+PMU_23 → GNB_1,93/111 transfers on time (83.8%) - avg transfer delay: 0.0105s
+PMU_24 → GNB_4,106/111 transfers on time (95.5%) - avg transfer delay: 0.0102s
+PMU_25 → GNB_3,106/111 transfers on time (95.5%) - avg transfer delay: 0.0098s
+PMU_26 → GNB_4,109/111 transfers on time (98.2%) - avg transfer delay: 0.0092s
+PMU_27 → GNB_6,101/111 transfers on time (91.0%) - avg transfer delay: 0.0100s
+PMU_28 → GNB_5,105/111 transfers on time (94.6%) - avg transfer delay: 0.0094s
+PMU_29 → GNB_4,107/111 transfers on time (96.4%) - avg transfer delay: 0.0091s
+,
+=== GNB SUMMARY LOGS ===,
+GNB_1,621/667 transfers on time (93.1%) from 6 PMUs - avg PMU waiting time: 0.0126s - avg TotalTime: 0.0197s
+GNB_2,533/557 transfers on time (95.7%) from 5 PMUs - avg PMU waiting time: 0.0112s - avg TotalTime: 0.0193s
+GNB_3,435/447 transfers on time (97.3%) from 4 PMUs - avg PMU waiting time: 0.0093s - avg TotalTime: 0.0182s
+GNB_4,428/444 transfers on time (96.4%) from 4 PMUs - avg PMU waiting time: 0.0098s - avg TotalTime: 0.0186s
+GNB_5,538/556 transfers on time (96.8%) from 5 PMUs - avg PMU waiting time: 0.0107s - avg TotalTime: 0.0190s
+GNB_6,629/668 transfers on time (94.2%) from 6 PMUs - avg PMU waiting time: 0.0122s - avg TotalTime: 0.0194s
+,
+,
+=== GRID ANALYSIS TASK STATISTICS ===,
+Total Tasks,671
+Successful Tasks,671
+Failed Tasks,0
+Success Rate,100.00%
+,
+=== EXECUTION TIME (Successful tasks only) ===,
+Average Execution Time,0.0042s
+Minimum Execution Time,0.0042s
+Maximum Execution Time,0.0042s
+Standard Deviation,0.0000s
+,
+=== TOTAL PROCESSING TIME ===,
+Average Total Processing Time,0.0190s
+,
+=== BATCH INFORMATION ===,
+Complete Batches,536
+Timeout Batches,135
+Complete Batch Rate,79.88%
+Average PDC Waiting Time,0.0110s

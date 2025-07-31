@@ -1576,14 +1576,15 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
             bars2 = ax2.bar(pmu_delay_labels, pmu_delay_values, color='blue')
             ax2.set_title('PMU Average Transfer Delay', fontweight='bold')
             ax2.set_xlabel('PMU ID')
-            ax2.set_ylabel('Average Transfer Delay (s)')
+            ax2.set_ylabel('Average Transfer Delay (ms)')
             ax2.grid(True, alpha=0.3)
             
-            # Add value labels on bars
+            # Add value labels on bars (convert to ms)
             for bar, delay in zip(bars2, pmu_delay_values):
                 height = bar.get_height()
+                delay_ms = delay * 1000  # Convert to milliseconds
                 ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
-                        f'{delay:.3f}s', ha='center', va='bottom', fontsize=8)
+                        f'{delay_ms:.0f}ms', ha='center', va='bottom', fontsize=8)
             
             # Rotate x-axis labels if too many PMUs
             if len(pmu_ids_delay) > 10:
@@ -1640,6 +1641,7 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
             gnb_names_wait = sorted(gnb_waiting_times.keys())
             gnb_pdc_times = []
             gnb_network_times = []
+            gnb_return_network_times = []  # NEW: Return Network Time
             gnb_exec_times_list = []
             
             for gnb_name in gnb_names_wait:
@@ -1650,27 +1652,35 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
                 
                 gnb_pdc_times.append(pdc_time)
                 gnb_network_times.append(network_time)
+                gnb_return_network_times.append(network_time)  # Return time = Network time
                 gnb_exec_times_list.append(exec_time)
             
-            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time)
-            bars4_network = ax4.bar(gnb_names_wait, gnb_network_times, color='blue', label='Network Transfer Time')
-            bars4_pdc = ax4.bar(gnb_names_wait, gnb_pdc_times, bottom=gnb_network_times, color='lightcoral', label='PDC Waiting Time')
+            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time → Return Network Time)
+            bars4_network = ax4.bar(gnb_names_wait, gnb_network_times, color='blue', label='Network Time', width=0.6)
+            bars4_pdc = ax4.bar(gnb_names_wait, gnb_pdc_times, bottom=gnb_network_times, color='lightcoral', label='PDC Waiting Time', width=0.6)
             bars4_exec = ax4.bar(gnb_names_wait, gnb_exec_times_list, 
                                bottom=[n + p for n, p in zip(gnb_network_times, gnb_pdc_times)], 
-                               color='orange', label='Execution Time')
+                               color='orange', label='Execution Time', width=0.6)
+            bars4_return = ax4.bar(gnb_names_wait, gnb_return_network_times, 
+                                  bottom=[n + p + e for n, p, e in zip(gnb_network_times, gnb_pdc_times, gnb_exec_times_list)], 
+                                  color='lightblue', label='Return Network Time', width=0.6)
             
             ax4.set_title('GNB Average Timings', fontweight='bold')
             ax4.set_xlabel('GNB ID')
-            ax4.set_ylabel('Average Time (s)')
+            ax4.set_ylabel('Average Time (ms)')
             ax4.grid(True, alpha=0.3)
             ax4.legend(loc='upper right', fontsize=8)
             
-            # Add total time labels on top of bars
+            # Set Y-axis limit to 250ms for better visual comparison
+            ax4.set_ylim(0, 0.25)
+            
+            # Add total time labels on top of bars (convert to ms)
             for i, gnb_name in enumerate(gnb_names_wait):
-                total_time = gnb_total_times_chart.get(gnb_name, 0.0)
+                total_time = gnb_network_times[i] + gnb_pdc_times[i] + gnb_exec_times_list[i] + gnb_return_network_times[i]
                 if total_time > 0:
+                    total_time_ms = total_time * 1000  # Convert to milliseconds
                     ax4.text(i, total_time + total_time*0.02,
-                            f'{total_time:.4f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
+                            f'{total_time_ms:.0f}ms', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
         # Adjust layout to prevent overlap
         plt.tight_layout()

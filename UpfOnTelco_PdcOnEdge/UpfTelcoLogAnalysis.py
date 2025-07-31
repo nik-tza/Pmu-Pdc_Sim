@@ -612,27 +612,27 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
                    fontweight='bold', fontsize=12, 
                    bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
     
-    # **NEW: Add TELCO datacenter in the center as a diamond with bright red color**
+    # **NEW: Add TELCO datacenter in the center as a hexagon (same as CloudLogAnalysis.py)**
     telco_x = params['length'] / 2
     telco_y = params['width'] / 2
     datacenter_positions['TELCO'] = (telco_x, telco_y)
     
-    # Create diamond shape for TELCO (using rotated square) - INCREASED SIZE
-    telco_diamond_size = TELCO_SIZE * 1.5  # Make it 50% bigger
-    diamond_points = np.array([
-        [telco_x, telco_y + telco_diamond_size/2],  # Top
-        [telco_x + telco_diamond_size/2, telco_y],  # Right
-        [telco_x, telco_y - telco_diamond_size/2],  # Bottom
-        [telco_x - telco_diamond_size/2, telco_y]   # Left
-    ])
-    
+    # Create hexagon for TELCO (same style as CloudLogAnalysis.py)
     from matplotlib.patches import Polygon
-    telco_diamond = Polygon(diamond_points, closed=True, 
-                           color='crimson',  # Bright red color
-                           alpha=0.9,
-                           ec='darkred',
-                           linewidth=3)
-    ax.add_patch(telco_diamond)
+    hexagon = Polygon([
+        (telco_x - TELCO_SIZE, telco_y),
+        (telco_x - TELCO_SIZE/2, telco_y + TELCO_SIZE*0.866),
+        (telco_x + TELCO_SIZE/2, telco_y + TELCO_SIZE*0.866),
+        (telco_x + TELCO_SIZE, telco_y),
+        (telco_x + TELCO_SIZE/2, telco_y - TELCO_SIZE*0.866),
+        (telco_x - TELCO_SIZE/2, telco_y - TELCO_SIZE*0.866)
+    ], color='lightcoral', alpha=0.9, ec='black', linewidth=2)
+    ax.add_patch(hexagon)
+    
+    # Add TELCO label
+    plt.annotate('TELCO', (telco_x, telco_y), xytext=(5, 5), textcoords='offset points',
+               fontweight='bold', fontsize=12, 
+               bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
     
     # TSO removed - distributed architecture
     
@@ -690,9 +690,9 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
             edge_id = datacenter['name'].split('_')[1]
             gnb_name = f"GNB_{edge_id}"
             
-            # Draw connection line from GNB to TELCO
-            plt.plot([gnb_x, telco_x], [gnb_y, telco_y], 'red', linestyle='-', 
-                    linewidth=2, alpha=0.6, zorder=1)  # Behind other elements
+            # Draw connection line from GNB to TELCO (same purple color as CloudLogAnalysis.py)
+            plt.plot([gnb_x, telco_x], [gnb_y, telco_y], 'purple', linestyle='-', 
+                    linewidth=3, alpha=0.7, zorder=1)  # Behind other elements
             
             # **Add latency label on GNB-TELCO connection if available**
             if gnb_name in gnb_to_telco_times:
@@ -702,13 +702,13 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
                 mid_x = (gnb_x + telco_x) / 2
                 mid_y = (gnb_y + telco_y) / 2
                 
-                # Add latency label
+                # Add latency label (same purple color as CloudLogAnalysis.py)
                 plt.annotate(f'{avg_latency:.4f}s', 
                            (mid_x, mid_y), 
                            xytext=(0, -10), textcoords='offset points',
-                           fontsize=8, fontweight='bold', color='darkred',
+                           fontsize=8, fontweight='bold', color='purple',
                            ha='center', va='top',
-                           bbox=dict(boxstyle="round,pad=0.1", facecolor='lightcoral', alpha=0.7))
+                           bbox=dict(boxstyle="round,pad=0.1", facecolor='plum', alpha=0.7))
     
     # Plot settings
     plt.grid(True, linestyle='--', alpha=0.3)
@@ -717,14 +717,13 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
     plt.title(f'UPF-TELCO Smart Grid Simulation Map\n{max_pmus} PMU Sensors, {len(datacenters)} GNB Edge Datacenters, and TELCO Central Processing', 
               fontsize=16, fontweight='bold')
     
-    # Create legend
+    # Create legend (same style as CloudLogAnalysis.py)
     legend_elements = [
         plt.Rectangle((0, 0), 1, 1, color='green', alpha=0.8, label='PMU Sensors'),
-        plt.Circle((0, 0), 1, color='gray', alpha=0.8, label='GNB Edge Datacenters'),
-        Polygon([(0, 0.5), (0.5, 0), (0, -0.5), (-0.5, 0)], closed=True, 
-                color='crimson', alpha=0.9, label='TELCO Datacenter'),
-        plt.Line2D([0], [0], color='gray', linestyle='--', alpha=0.5, label='PMU-GNB Links'),
-        plt.Line2D([0], [0], color='red', linestyle='-', alpha=0.6, label='GNB-TELCO Links'),
+        plt.Circle((0, 0), 1, color='gray', alpha=0.8, label='Edge Datacenters (GNBs)'),
+        plt.Polygon([(0, 0), (0.5, 0.866), (1, 0), (0.5, -0.866)], color='lightcoral', alpha=0.9, label='TELCO Hub'),
+        plt.Line2D([0], [0], color='purple', linewidth=3, alpha=0.7, label='Network Links'),
+        plt.Line2D([0], [0], color='gray', linestyle='--', alpha=0.5, label='PMU-EDGE Links'),
         plt.Circle((0, 0), 1, color='gray', alpha=0.15, label='Coverage Area')
     ]
     
@@ -1756,14 +1755,15 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
             bars2 = ax2.bar(pmu_delay_labels, pmu_delay_values, color='blue')
             ax2.set_title('PMU Average Transfer Delay', fontweight='bold')
             ax2.set_xlabel('PMU ID')
-            ax2.set_ylabel('Average Transfer Delay (s)')
+            ax2.set_ylabel('Average Transfer Delay (ms)')
             ax2.grid(True, alpha=0.3)
             
-            # Add value labels on bars
+            # Add value labels on bars (convert to ms)
             for bar, delay in zip(bars2, pmu_delay_values):
                 height = bar.get_height()
+                delay_ms = delay * 1000  # Convert to milliseconds
                 ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
-                        f'{delay:.3f}s', ha='center', va='bottom', fontsize=8)
+                        f'{delay_ms:.0f}ms', ha='center', va='bottom', fontsize=8)
             
             # Rotate x-axis labels if too many PMUs
             if len(pmu_ids_delay) > 10:
@@ -1820,6 +1820,7 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
             gnb_names_wait = sorted(gnb_waiting_times.keys())
             gnb_pdc_times = []
             gnb_network_times = []
+            gnb_return_network_times = []  # NEW: Return Network Time
             gnb_exec_times_list = []
             
             for gnb_name in gnb_names_wait:
@@ -1830,27 +1831,35 @@ def create_performance_charts(simulation_folder: str, pmu_stats: dict, pmu_delay
                 
                 gnb_pdc_times.append(pdc_time)
                 gnb_network_times.append(network_time)
+                gnb_return_network_times.append(network_time)  # Return time = Network time
                 gnb_exec_times_list.append(exec_time)
             
-            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time)
-            bars4_network = ax4.bar(gnb_names_wait, gnb_network_times, color='blue', label='Network Transfer Time')
-            bars4_pdc = ax4.bar(gnb_names_wait, gnb_pdc_times, bottom=gnb_network_times, color='lightcoral', label='PDC Waiting Time')
+            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time → Return Network Time)
+            bars4_network = ax4.bar(gnb_names_wait, gnb_network_times, color='blue', label='Network Time', width=0.6)
+            bars4_pdc = ax4.bar(gnb_names_wait, gnb_pdc_times, bottom=gnb_network_times, color='lightcoral', label='PDC Waiting Time', width=0.6)
             bars4_exec = ax4.bar(gnb_names_wait, gnb_exec_times_list, 
                                bottom=[n + p for n, p in zip(gnb_network_times, gnb_pdc_times)], 
-                               color='orange', label='Execution Time')
+                               color='orange', label='Execution Time', width=0.6)
+            bars4_return = ax4.bar(gnb_names_wait, gnb_return_network_times, 
+                                  bottom=[n + p + e for n, p, e in zip(gnb_network_times, gnb_pdc_times, gnb_exec_times_list)], 
+                                  color='lightblue', label='Return Network Time', width=0.6)
             
             ax4.set_title('GNB Average Timings', fontweight='bold')
             ax4.set_xlabel('GNB ID')
-            ax4.set_ylabel('Average Time (s)')
+            ax4.set_ylabel('Average Time (ms)')
             ax4.grid(True, alpha=0.3)
             ax4.legend(loc='upper right', fontsize=8)
             
-            # Add total time labels on top of bars
+            # Set Y-axis limit to 0.25 for better visual comparison
+            ax4.set_ylim(0, 0.25)
+            
+            # Add total time labels on top of bars (convert to ms)
             for i, gnb_name in enumerate(gnb_names_wait):
-                total_time = gnb_total_times_chart.get(gnb_name, 0.0)
+                total_time = gnb_network_times[i] + gnb_pdc_times[i] + gnb_exec_times_list[i] + gnb_return_network_times[i]
                 if total_time > 0:
+                    total_time_ms = total_time * 1000  # Convert to milliseconds
                     ax4.text(i, total_time + total_time*0.02,
-                            f'{total_time:.4f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
+                            f'{total_time_ms:.0f}ms', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
         # Adjust layout to prevent overlap
         plt.tight_layout()

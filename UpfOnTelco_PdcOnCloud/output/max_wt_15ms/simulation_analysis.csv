@@ -1,0 +1,80 @@
+Metric,Value
+=== PMU DATA TRANSFER STATISTICS ===,
+Total Data Volume,26676.00 KB
+,
+=== HOP-BY-HOP AVERAGE TIMING AND DISTANCES ===,
+PMU → GNB Time,0.0094s
+PMU → GNB Distance,345.9m
+GNB → TELCO Time,0.0375s
+GNB → TELCO Distance,638.7m
+TELCO → TSO Time,0.0758s
+TELCO → TSO Distance,1415.6m
+Total Path Time,0.1227s
+Total Path Distance,2400.2m
+,
+=== DEADLINE MISSED SUMMARY ===,
+Total Deadline Missed,0/0
+Deadline Missed Rate,0.00%
+PMUs with Deadline Misses,30/30
+,
+=== DETAILED SUCCESSFUL TRANSFERS PER PMU ===,
+PMU_00 → GNB_3,"538/611 (88.1%) - GNB: 0.0092s, TSO: 0.1222s"
+PMU_01 → GNB_3,"544/612 (88.9%) - GNB: 0.0086s, TSO: 0.1223s"
+PMU_02 → GNB_6,"536/612 (87.6%) - GNB: 0.0091s, TSO: 0.1225s"
+PMU_03 → GNB_5,"542/612 (88.6%) - GNB: 0.0093s, TSO: 0.1237s"
+PMU_04 → GNB_2,"543/612 (88.7%) - GNB: 0.0088s, TSO: 0.1229s"
+PMU_05 → GNB_2,"543/612 (88.7%) - GNB: 0.0098s, TSO: 0.1223s"
+PMU_06 → GNB_1,"533/612 (87.1%) - GNB: 0.0089s, TSO: 0.1221s"
+PMU_07 → GNB_6,"540/612 (88.2%) - GNB: 0.0084s, TSO: 0.1221s"
+PMU_08 → GNB_3,"538/612 (87.9%) - GNB: 0.0089s, TSO: 0.1233s"
+PMU_09 → GNB_5,"538/611 (88.1%) - GNB: 0.0090s, TSO: 0.1227s"
+PMU_10 → GNB_4,"537/611 (87.9%) - GNB: 0.0078s, TSO: 0.1216s"
+PMU_11 → GNB_3,"548/611 (89.7%) - GNB: 0.0082s, TSO: 0.1219s"
+PMU_12 → GNB_3,"536/611 (87.7%) - GNB: 0.0092s, TSO: 0.1232s"
+PMU_13 → GNB_6,"534/611 (87.4%) - GNB: 0.0101s, TSO: 0.1235s"
+PMU_14 → GNB_5,"540/611 (88.4%) - GNB: 0.0098s, TSO: 0.1230s"
+PMU_15 → GNB_2,"538/611 (88.1%) - GNB: 0.0091s, TSO: 0.1220s"
+PMU_16 → GNB_2,"540/611 (88.4%) - GNB: 0.0087s, TSO: 0.1218s"
+PMU_17 → GNB_1,"534/611 (87.4%) - GNB: 0.0100s, TSO: 0.1229s"
+PMU_18 → GNB_6,"543/611 (88.9%) - GNB: 0.0097s, TSO: 0.1234s"
+PMU_19 → GNB_3,"546/611 (89.4%) - GNB: 0.0091s, TSO: 0.1228s"
+PMU_20 → GNB_6,"29/111 (26.1%) - GNB: 0.0091s, TSO: 0.1223s"
+PMU_21 → GNB_1,"36/111 (32.4%) - GNB: 0.0088s, TSO: 0.1229s"
+PMU_22 → GNB_4,"41/111 (36.9%) - GNB: 0.0112s, TSO: 0.1229s"
+PMU_23 → GNB_1,"35/111 (31.5%) - GNB: 0.0087s, TSO: 0.1239s"
+PMU_24 → GNB_4,"36/111 (32.4%) - GNB: 0.0099s, TSO: 0.1223s"
+PMU_25 → GNB_3,"45/111 (40.5%) - GNB: 0.0077s, TSO: 0.1219s"
+PMU_26 → GNB_4,"45/111 (40.5%) - GNB: 0.0089s, TSO: 0.1210s"
+PMU_27 → GNB_6,"26/111 (23.4%) - GNB: 0.0110s, TSO: 0.1260s"
+PMU_28 → GNB_5,"36/111 (32.4%) - GNB: 0.0077s, TSO: 0.1251s"
+PMU_29 → GNB_4,"49/111 (44.1%) - GNB: 0.0085s, TSO: 0.1214s"
+,
+=== SUCCESSFUL TRANSFERS SUMMARY BY GNB ===,
+GNB_1,2213/2666 (83.0%) from 4 PMUs - avg time: 0.0091s
+GNB_2,1869/2224 (84.0%) from 4 PMUs - avg time: 0.0091s
+GNB_3,1501/1782 (84.2%) from 7 PMUs - avg time: 0.0087s
+GNB_4,1503/1776 (84.6%) from 5 PMUs - avg time: 0.0093s
+GNB_5,1869/2222 (84.1%) from 4 PMUs - avg time: 0.0089s
+GNB_6,2214/2668 (83.0%) from 6 PMUs - avg time: 0.0096s
+,
+,
+=== GRID ANALYSIS TASK STATISTICS ===,
+Total Tasks,112
+Successful Tasks,112
+Failed Tasks,0
+Success Rate,100.00%
+,
+=== EXECUTION TIME (Successful tasks only) ===,
+Average Execution Time,0.0067s
+Minimum Execution Time,0.0067s
+Maximum Execution Time,0.0067s
+Standard Deviation,0.0000s
+,
+=== TOTAL PROCESSING TIME ===,
+Average Total Processing Time,0.1249s
+,
+=== BATCH INFORMATION ===,
+Complete Batches,0
+Timeout Batches,112
+Complete Batch Rate,0.00%
+Average PDC Waiting Time,0.0150s

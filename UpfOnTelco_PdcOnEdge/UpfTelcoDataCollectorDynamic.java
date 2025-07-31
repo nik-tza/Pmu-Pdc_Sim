@@ -24,7 +24,7 @@ public class UpfTelcoDataCollectorDynamic extends SimEntity {
     
     // Collection parameters  
     private final int REQUIRED_UPFTELCO_COUNT; // PMUs assigned to this GNB
-    private static final double MAX_WAITING_LATENCY = 0.0155; // **max waiting for late UpfTelco data**
+    private static final double MAX_WAITING_LATENCY = 0.015; // **max waiting for late UpfTelco data**
     
     // **NEW: GNB-specific properties**
     private final ComputingNode assignedGnb; // The GNB this collector belongs to

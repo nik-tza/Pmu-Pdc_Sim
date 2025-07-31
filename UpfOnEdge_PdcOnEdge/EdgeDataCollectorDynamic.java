@@ -24,7 +24,7 @@ public class EdgeDataCollectorDynamic extends SimEntity {
     
     // Collection parameters  
     private final int REQUIRED_EDGE_COUNT; // PMUs assigned to this GNB
-    private static final double MAX_WAITING_LATENCY =  0.0150; // **max waiting for late Edge data**
+    private static final double MAX_WAITING_LATENCY =  0.015; // **max waiting for late Edge data**
     
     // **NEW: GNB-specific properties**
     private final ComputingNode assignedGnb; // The GNB this collector belongs to

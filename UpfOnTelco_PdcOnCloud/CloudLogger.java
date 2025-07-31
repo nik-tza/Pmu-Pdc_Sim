@@ -49,7 +49,7 @@ public class CloudLogger {
     
     // Adding new fields for CSV logging
     private List<String> csvRecords = new ArrayList<>();
-    private static final String CSV_HEADER = "Time,PmuID,PmuCoordinates,DataSize,Path,HopSum,Status";
+    private static final String CSV_HEADER = "Time,PmuID,PmuCoordinates,DataSize,GNB_Target,Path,HopSum,Status";
     
     // **NEW: State Estimation CSV logging**
     private List<String> stateEstimationCsvRecords = new ArrayList<>();
@@ -310,10 +310,18 @@ public class CloudLogger {
         // Use the custom time printing method like DroneLogger
         printWithCustomTime(taskMessage);
         
-        // Also write to CSV
-        String csvRecord = String.format("%s,%d,%d,%.2f,%.2f,%s",
-            timestamp, pmuId, pmuId + 1, dataSizeKB, returnSizeKB,
-            status, waitingTime, executionTime, networkTime, totalTime, hops);
+        // Also write to CSV - Updated to match new header format with GNB_Target column
+        double csvSimTime = simulationManager != null ? simulationManager.getSimulation().clock() : 0.0;
+        Location csvPmuLocation = pmu.getMobilityModel().getCurrentLocation();
+        
+        // Extract GNB target from hops/path for the new GNB_Target column
+        String gnbTarget = extractGnbFromPath(hops);
+        if (gnbTarget == null || gnbTarget.isEmpty()) {
+            gnbTarget = "GNB_Unknown"; // Fallback value
+        }
+        
+        String csvRecord = String.format("%.4f,%d,\"(%.1f,%.1f)\",%.2f,%s,\"%s\",%.4f,%s",
+            csvSimTime, pmuId, csvPmuLocation.getXPos(), csvPmuLocation.getYPos(), dataSizeKB, gnbTarget, hops, totalTime, status);
         
         csvRecords.add(csvRecord);
         
@@ -683,22 +691,33 @@ public class CloudLogger {
      * Logs PMU data transfer with full task details (new method)
      */
     public void logPmuDataTransferFull(Task dataTask, int pmuId, double dataSizeKB, String path) {
-        // Call the new method with deadlineMissed = false and hopSum = 0.0 for backward compatibility
-        logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, path, false, 0.0);
+        // Call the new method with default gnbTarget extracted from path for backward compatibility
+        String gnbTarget = extractGnbFromPath(path);
+        logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, gnbTarget, path, false, 0.0);
     }
     
     /**
      * **NEW: Logs PMU data transfer with full task details and deadline missed flag**
      */
     public void logPmuDataTransferFull(Task dataTask, int pmuId, double dataSizeKB, String path, boolean deadlineMissed) {
-        // Call with hopSum = 0.0 for backward compatibility
-        logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, path, deadlineMissed, 0.0);
+        // Call with default gnbTarget extracted from path for backward compatibility
+        String gnbTarget = extractGnbFromPath(path);
+        logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, gnbTarget, path, deadlineMissed, 0.0);
+    }
+    
+    /**
+     * **NEW: Logs PMU data transfer with full task details, deadline missed flag, and hop sum (backward compatibility)**
+     */
+    public void logPmuDataTransferFull(Task dataTask, int pmuId, double dataSizeKB, String path, boolean deadlineMissed, double hopSum) {
+        // Call with default gnbTarget extracted from path for backward compatibility
+        String gnbTarget = extractGnbFromPath(path);
+        logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, gnbTarget, path, deadlineMissed, hopSum);
     }
     
     /**
      * **NEW: Logs PMU data transfer with full task details, deadline missed flag, and hop sum**
      */
-    public void logPmuDataTransferFull(Task dataTask, int pmuId, double dataSizeKB, String path, boolean deadlineMissed, double hopSum) {
+    public void logPmuDataTransferFull(Task dataTask, int pmuId, double dataSizeKB, String gnbTarget, String path, boolean deadlineMissed, double hopSum) {
         // **CHANGED: Use task generation time instead of simulation clock**
         double generationTime = dataTask.getTime(); 
         
@@ -748,8 +767,12 @@ public class CloudLogger {
         
         // **NEW: Add to CSV records with deadline missed marker and hop sum**
         String statusValue = deadlineMissed ? "DEADLINE_MISSED" : "OK";
-        String csvRecord = String.format("%.4f,%d,\"(%.1f,%.1f)\",%.2f,\"%s\",%.4f,%s",
-            generationTime, pmuId, pmuLocation.getXPos(), pmuLocation.getYPos(), dataSizeKB, path, hopSum, statusValue); // **CHANGED: CSV also uses generation time**
+        
+        // **NEW: Use provided gnbTarget parameter (from transferResult.assignedGnbName)**
+        String gnbTargetValue = (gnbTarget != null && !gnbTarget.isEmpty()) ? gnbTarget : "GNB_Unknown";
+        
+        String csvRecord = String.format("%.4f,%d,\"(%.1f,%.1f)\",%.2f,%s,\"%s\",%.4f,%s",
+            generationTime, pmuId, pmuLocation.getXPos(), pmuLocation.getYPos(), dataSizeKB, gnbTargetValue, path, hopSum, statusValue); // **NEW: Added GNB_Target column**
         csvRecords.add(csvRecord);
     }
     
@@ -1062,8 +1085,8 @@ public class CloudLogger {
             // Track TSO data arrival (final destination in cloud architecture)
             trackTsoDataArrival(dataSizeKB);
             
-            // Log the transfer with all details
-            logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, path, false, transferResult.totalDelay);
+            // Log the transfer with all details - using assignedGnbName from transferResult
+            logPmuDataTransferFull(dataTask, pmuId, dataSizeKB, transferResult.assignedGnbName, path, false, transferResult.totalDelay);
             
         } catch (Exception e) {
             System.err.println("CloudLogger - Error logging network transfer: " + e.getMessage());

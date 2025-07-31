@@ -157,59 +157,51 @@ def read_pmu_positions_from_csv(simulation_folder: str) -> Tuple[List[Dict[str, 
         # **FIXED: Read CSV with proper CSV parsing using csv module**
         print("📖 Loading CSV file with proper CSV parsing...")
         
-        # **Read the CSV file using csv module**
-        with open(pmu_csv_file, 'r') as file:
-            csv_reader = csv.reader(file)
-            
-            # Read header
-            header = next(csv_reader)
-            print(f"✓ CSV header: {header}")
-            
-            # **Verify we have the expected 7 columns**
-            if len(header) != 7:
-                print(f"❌ ERROR: Expected 7 columns in header, got {len(header)}")
-                return [], {}
-            
-            expected_columns = ['Time', 'PmuID', 'PmuCoordinates', 'DataSize', 'Path', 'HopSum', 'Status']
-            for i, col in enumerate(expected_columns):
-                if i < len(header) and header[i] != col:
-                    print(f"⚠️  WARNING: Expected column '{col}' at position {i}, got '{header[i]}'")
-            
-            # **Process data rows**
-            processed_entries = 0
-            processed_pmus = 0
-            
-            for line_num, row in enumerate(csv_reader, start=2):  # Start from line 2 (after header)
-                try:
-                    # **Ensure we have exactly 7 columns**
-                    if len(row) != 7:
-                        print(f"❌ Skipping line {line_num}: Got {len(row)} columns, need exactly 7")
-                        continue
-                    
-                    # **Extract all 7 fields**
-                    time_val = float(row[0])
-                    pmu_id = int(row[1])
-                    pmu_coordinates = row[2].strip('"')  # Remove quotes if present
-                    data_size = float(row[3])
-                    path = row[4].strip('"')  # Remove quotes if present  
-                    hop_sum = float(row[5])
-                    status = row[6].strip()  # Status column (OK or DEADLINE_MISSED)
-                    
-                    # **Check for DEADLINE_MISSED in the Status column**
-                    deadline_missed = (status == 'DEADLINE_MISSED')
-                    
-                    processed_entries += 1
-                    
-                    # **Track deadline missed statistics per PMU**
-                    if pmu_id not in deadline_missed_stats:
-                        deadline_missed_stats[pmu_id] = {'total_transfers': 0, 'deadline_missed': 0}
-                    
-                    deadline_missed_stats[pmu_id]['total_transfers'] += 1
-                    if deadline_missed:
-                        deadline_missed_stats[pmu_id]['deadline_missed'] += 1
-                    
-                    # **Parse Path to extract GNB and hop times WITH DISTANCES**
-                    if '->' in path:
+        # **Read the CSV file using pandas DataFrame for better column handling**
+        import pandas as pd
+        df = pd.read_csv(pmu_csv_file)
+        print(f"✓ CSV header: {list(df.columns)}")
+        
+        # **Verify we have the expected columns**
+        expected_columns = ['Time', 'PmuID', 'PmuCoordinates', 'DataSize', 'GNB_Target', 'Path', 'HopSum', 'Status']
+        missing_columns = [col for col in expected_columns if col not in df.columns]
+        if missing_columns:
+            print(f"❌ ERROR: Missing columns: {missing_columns}")
+            return [], {}
+        
+        print(f"✅ Found all expected columns: {list(df.columns)}")
+        
+        # **Process data rows using DataFrame**
+        processed_entries = 0
+        processed_pmus = 0
+        
+        for index, row in df.iterrows():
+            try:
+                # **Extract all fields using column names**
+                time_val = float(row['Time'])
+                pmu_id = int(row['PmuID'])
+                pmu_coordinates = str(row['PmuCoordinates']).strip('"')  # Remove quotes if present
+                data_size = float(row['DataSize'])
+                gnb_target = str(row['GNB_Target']).strip()  # GNB_Target column
+                path = str(row['Path']).strip('"')  # Remove quotes if present  
+                hop_sum = float(row['HopSum'])
+                status = str(row['Status']).strip()  # Status column (OK or DEADLINE_MISSED)
+                
+                # **Check for DEADLINE_MISSED in the Status column**
+                deadline_missed = (status == 'DEADLINE_MISSED')
+                
+                processed_entries += 1
+                
+                # **Track deadline missed statistics per PMU**
+                if pmu_id not in deadline_missed_stats:
+                    deadline_missed_stats[pmu_id] = {'total_transfers': 0, 'deadline_missed': 0}
+                
+                deadline_missed_stats[pmu_id]['total_transfers'] += 1
+                if deadline_missed:
+                    deadline_missed_stats[pmu_id]['deadline_missed'] += 1
+                
+                # **Parse Path to extract GNB and hop times WITH DISTANCES**
+                if '->' in path:
                         # Parse NEW format: "PMU -> GNB_1 (0.0060s, 42.9m) -> TELCO (0.0114s, 500.0m) -> TSO (0.0606s, 1415.6m)"
                         path_parts = path.split(' -> ')
                         
@@ -276,9 +268,9 @@ def read_pmu_positions_from_csv(simulation_folder: str) -> Tuple[List[Dict[str, 
                                     print(f"🎯 PMU {pmu_id}: FIRST assignment to {gnb_name} (from path: {path})")
                             elif processed_entries <= 10:
                                 print(f"🔄 PMU {pmu_id}: keeping original assignment to {hop_times[pmu_id]['gnb_name']} (ignoring {gnb_name})")
-                    
-                    # **If we haven't seen this PMU ID before, store its position**
-                    if pmu_id not in seen_pmu_ids:
+                
+                # **If we haven't seen this PMU ID before, store its position**
+                if pmu_id not in seen_pmu_ids:
                         # **Parse coordinates from string format "(x,y)"**
                         if processed_pmus < 5:
                             print(f"🎯 Processing PMU {pmu_id}: coords_str = '{pmu_coordinates}', status = '{status}', deadline_missed = {deadline_missed}")
@@ -312,11 +304,11 @@ def read_pmu_positions_from_csv(simulation_folder: str) -> Tuple[List[Dict[str, 
                         else:
                             if processed_pmus < 5:
                                 print(f"❌ Invalid coordinate format '{pmu_coordinates}' for PMU {pmu_id}")
-                    
-                except (ValueError, IndexError) as e:
-                    if processed_entries <= 5:
-                        print(f"❌ Error processing line {line_num}: {e}")
-                    continue
+                
+            except (ValueError, IndexError) as e:
+                if processed_entries <= 5:
+                    print(f"❌ Error processing row {index}: {e}")
+                continue
                 
                 # Stop after processing enough rows to get all unique PMUs
                 if processed_entries >= 1000:
@@ -426,14 +418,14 @@ def calculate_accurate_transfer_stats(simulation_folder: str) -> Dict[str, Dict]
             # Process all rows
             for line_num, row in enumerate(csv_reader, start=2):
                 try:
-                    if len(row) != 7:
+                    if len(row) != 8:
                         continue
                     
                     # Extract data from CSV row
                     pmu_id = int(row[1])  # PmuID column
-                    path = row[4].strip('"')  # Path column
-                    hop_sum = float(row[5])  # HopSum column
-                    status = row[6].strip()  # Status column (OK or DEADLINE_MISSED)
+                    path = row[5].strip('"')  # Path column (moved to position 5 due to GNB_Target)
+                    hop_sum = float(row[6])  # HopSum column (moved to position 6)
+                    status = row[7].strip()  # Status column (moved to position 7)
                     
                     # Extract GNB name from path
                     # Format: "PMU -> GNB_2 (0.0001s, 110.1m) -> TELCO (...) -> TSO (...)"
@@ -576,11 +568,11 @@ def calculate_pmu_to_gnb_average_times(simulation_folder: str) -> Dict[int, floa
             
             for line_num, row in enumerate(csv_reader, start=2):
                 try:
-                    if len(row) != 7:
+                    if len(row) != 8:
                         continue
                     
                     pmu_id = int(row[1])
-                    path = row[4].strip('"')  # Path column
+                    path = row[5].strip('"')  # Path column (moved to position 5 due to GNB_Target)
                     
                     # Extract PMU to GNB time from path
                     # Format: "PMU -> GNB_1 (0.0060s, 42.9m) -> TELCO (0.0114s, 500.0m) -> TSO (0.0606s, 1415.6m)"
@@ -623,6 +615,51 @@ def calculate_pmu_to_gnb_average_times(simulation_folder: str) -> Dict[int, floa
         print(f"❌ Error calculating PMU to GNB times: {e}")
         return {}
 
+def calculate_gnb_network_times(simulation_folder: str) -> Dict[str, float]:
+    """Calculate average network times per GNB from HopSum values in Sequential_simulation_pmu.csv."""
+    gnb_network_times = {}
+    
+    try:
+        pmu_csv_file = os.path.join(simulation_folder, "Sequential_simulation_pmu.csv")
+        
+        if not os.path.exists(pmu_csv_file):
+            print(f"WARNING: Sequential_simulation_pmu.csv not found for GNB network times calculation")
+            return gnb_network_times
+        
+        print("📊 Calculating GNB network times from HopSum values...")
+        
+        # Read CSV using pandas DataFrame for better column handling
+        import pandas as pd
+        df = pd.read_csv(pmu_csv_file)
+        
+        for index, row in df.iterrows():
+            try:
+                gnb_target = str(row['GNB_Target']).strip()
+                hop_sum = float(row['HopSum'])
+                
+                if gnb_target not in gnb_network_times:
+                    gnb_network_times[gnb_target] = []
+                
+                gnb_network_times[gnb_target].append(hop_sum)
+            
+            except (ValueError, IndexError) as e:
+                continue
+        
+        # Calculate averages for each GNB
+        gnb_averages = {}
+        for gnb_name, times in gnb_network_times.items():
+            if times:
+                avg_time = sum(times) / len(times)
+                gnb_averages[gnb_name] = avg_time
+                print(f"  {gnb_name}: {len(times)} samples, avg network time: {avg_time:.4f}s")
+        
+        print(f"✅ Calculated average network times for {len(gnb_averages)} GNBs")
+        return gnb_averages
+        
+    except Exception as e:
+        print(f"❌ Error calculating GNB network times: {e}")
+        return {}
+
 def create_simulation_map(simulation_folder: str, logger: logging.Logger):
     """Create the PMU simulation map showing GNBs, PMUs, TELCO and connections."""
     if not SHOW_PLOTS:
@@ -662,7 +699,7 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
         
         # Choose color and shape based on type
         if name == "TELCO":
-            color = 'red'
+            color = 'lightcoral'
             # Create hexagon for TELCO
             hexagon = plt.Polygon([
                 (x - TELCO_SIZE, y),
@@ -824,7 +861,7 @@ def create_simulation_map(simulation_folder: str, logger: logging.Logger):
     legend_elements = [
         plt.Rectangle((0, 0), 1, 1, color='green', alpha=0.8, label='PMU Sensors'),
         plt.Circle((0, 0), 1, color='gray', alpha=0.8, label='Edge Datacenters (GNBs)'),
-        plt.Polygon([(0, 0), (0.5, 0.866), (1, 0), (0.5, -0.866)], color='red', alpha=0.9, label='TELCO Hub'),
+        plt.Polygon([(0, 0), (0.5, 0.866), (1, 0), (0.5, -0.866)], color='lightcoral', alpha=0.9, label='TELCO Hub'),
         plt.Polygon([(0, 0), (0.707, 0.707), (1, 0), (0.707, -0.707), (0, -1), (-0.707, -0.707), (-1, 0), (-0.707, 0.707)], 
                    color='blue', alpha=0.9, label='TSO Cloud'),
         plt.Line2D([0], [0], color='purple', linewidth=3, alpha=0.7, label='Network Links'),
@@ -1745,6 +1782,9 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
         # Get PMU to GNB average times
         pmu_to_gnb_avg_times = calculate_pmu_to_gnb_average_times(simulation_folder)
         
+        # Get GNB network times from HopSum values
+        gnb_network_times = calculate_gnb_network_times(simulation_folder)
+        
         if not accurate_pmu_stats or not accurate_gnb_stats:
             logger.warning("No data available for performance charts")
             return
@@ -1796,14 +1836,15 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
         bars2 = ax2.bar(pmu_delay_labels, pmu_avg_delays, color='blue')
         ax2.set_title('PMU Average Transfer Delay', fontweight='bold')
         ax2.set_xlabel('PMU ID')
-        ax2.set_ylabel('Average Transfer Delay (s)')
+        ax2.set_ylabel('Average Transfer Delay (ms)')
         ax2.grid(True, alpha=0.3)
         
-        # Add value labels on bars
+        # Add value labels on bars (convert to ms)
         for bar, delay in zip(bars2, pmu_avg_delays):
             height = bar.get_height()
+            delay_ms = delay * 1000  # Convert to milliseconds
             ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
-                    f'{delay:.3f}s', ha='center', va='bottom', fontsize=8)
+                    f'{delay_ms:.0f}ms', ha='center', va='bottom', fontsize=8)
         
         # Rotate x-axis labels if too many PMUs
         if len(pmu_ids) > 10:
@@ -1833,7 +1874,7 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
             ax3.text(bar.get_x() + bar.get_width()/2., height + 1,
                     f'{rate:.1f}%', ha='center', va='bottom', fontsize=10)
         
-        # **Chart 4: TSO Average Timings (κάτω δεξιά - Stacked bar chart)**
+        # **Chart 4: GNB Average Timings (κάτω δεξιά - Stacked bar chart)**
         # Read state estimation CSV to get TSO execution times
         state_csv = None
         for file in os.listdir(simulation_folder):
@@ -1841,7 +1882,7 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
                 state_csv = os.path.join(simulation_folder, file)
                 break
         
-        if state_csv and os.path.exists(state_csv):
+        if state_csv and os.path.exists(state_csv) and gnb_network_times:
             import pandas as pd
             df_state = pd.read_csv(state_csv)
             
@@ -1849,42 +1890,66 @@ def create_performance_charts(simulation_folder: str, logger: logging.Logger):
             # Calculate average times for TSO processing
             avg_exec_time = df_state['ExecTime'].mean() if 'ExecTime' in df_state.columns else 0.0
             avg_pdc_waiting = df_state['PDCWaitingTime'].mean() if 'PDCWaitingTime' in df_state.columns else 0.0
-            avg_total_time = df_state['TotalTime'].mean() if 'TotalTime' in df_state.columns else 0.0
             
-            # Calculate network time (total - pdc waiting - execution)
-            avg_network_time = max(0, avg_total_time - avg_pdc_waiting - avg_exec_time)
+            # Get GNB names and their network times
+            gnb_names = sorted(gnb_network_times.keys())
             
-            # Create single bar for TSO with stacked components
-            tso_names = ['TSO']
-            network_times = [avg_network_time]
-            pdc_times = [avg_pdc_waiting]
-            exec_times = [avg_exec_time]
-            
-            # Create stacked bar chart (Network Time → PDC Waiting Time → Execution Time) with very narrow width like a thin candle
-            bars4_network = ax4.bar(tso_names, network_times, color='blue', label='Network Transfer Time', width=0.05)
-            bars4_pdc = ax4.bar(tso_names, pdc_times, bottom=network_times, color='lightcoral', label='PDC Waiting Time', width=0.05)
-            bars4_exec = ax4.bar(tso_names, exec_times, 
-                               bottom=[n + p for n, p in zip(network_times, pdc_times)], 
-                               color='orange', label='Execution Time', width=0.05)
-            
-            ax4.set_title('TSO Average Timings', fontweight='bold')
-            ax4.set_xlabel('Processing Node')
-            ax4.set_ylabel('Average Time (s)')
-            ax4.grid(True, alpha=0.3)
-            ax4.legend(loc='upper right', fontsize=8)
-            # Set x-axis limits to make the bar appear as a narrow candle in the center
-            ax4.set_xlim(-0.8, 0.8)
-            
-            # Add total time label on top of bar
-            if avg_total_time > 0:
-                ax4.text(0, avg_total_time + avg_total_time*0.02,
-                        f'{avg_total_time:.4f}s', ha='center', va='bottom', fontsize=11, fontweight='bold')
+            if gnb_names:
+                # Prepare data for stacked bar chart
+                network_times = []
+                return_network_times = []  # Return network time (same as network time)
+                pdc_times = []
+                exec_times = []
+                
+                for gnb_name in gnb_names:
+                    network_time = gnb_network_times[gnb_name]
+                    network_times.append(network_time)
+                    return_network_times.append(network_time)  # Return time = network time
+                    pdc_times.append(avg_pdc_waiting)
+                    exec_times.append(avg_exec_time)
+                
+                # Create stacked bar chart for each GNB
+                # Stacking order: Network Time → PDC Waiting Time → Execution Time → Return Network Time
+                bars4_network = ax4.bar(gnb_names, network_times, color='blue', label='Network Time', width=0.6)
+                bars4_pdc = ax4.bar(gnb_names, pdc_times, 
+                                   bottom=network_times, 
+                                   color='lightcoral', label='PDC Waiting Time', width=0.6)
+                bars4_exec = ax4.bar(gnb_names, exec_times, 
+                                   bottom=[n + p for n, p in zip(network_times, pdc_times)], 
+                                   color='orange', label='Execution Time', width=0.6)
+                bars4_return = ax4.bar(gnb_names, return_network_times, 
+                                      bottom=[n + p + e for n, p, e in zip(network_times, pdc_times, exec_times)], 
+                                      color='lightblue', label='Return Network Time', width=0.6)
+                
+                ax4.set_title('GNB Average Timings', fontweight='bold')
+                ax4.set_xlabel('GNB ID')
+                ax4.set_ylabel('Average Time (ms)')
+                ax4.grid(True, alpha=0.3)
+                ax4.legend(loc='upper right', fontsize=8)
+                
+                # Add total time labels on top of bars (convert to ms)
+                for i, gnb_name in enumerate(gnb_names):
+                    total_time = network_times[i] + pdc_times[i] + exec_times[i] + return_network_times[i]
+                    total_time_ms = total_time * 1000  # Convert to milliseconds
+                    ax4.text(i, total_time + total_time*0.02,
+                            f'{total_time_ms:.0f}ms', ha='center', va='bottom', fontsize=9, fontweight='bold')
+                
+                # Rotate x-axis labels if too many GNBs
+                if len(gnb_names) > 6:
+                    ax4.tick_params(axis='x', rotation=45)
+            else:
+                # No GNB data - show empty chart
+                ax4.text(0.5, 0.5, 'No GNB Network Data Available', ha='center', va='center', 
+                        transform=ax4.transAxes, fontsize=12, color='gray')
+                ax4.set_title('GNB Average Timings', fontweight='bold')
+                ax4.set_xlabel('GNB ID')
+                ax4.set_ylabel('Average Time (s)')
         else:
             # No state estimation data - show empty chart
             ax4.text(0.5, 0.5, 'No TSO Data Available', ha='center', va='center', 
                     transform=ax4.transAxes, fontsize=12, color='gray')
-            ax4.set_title('TSO Average Timings', fontweight='bold')
-            ax4.set_xlabel('Processing Node')
+            ax4.set_title('GNB Average Timings', fontweight='bold')
+            ax4.set_xlabel('GNB ID')
             ax4.set_ylabel('Average Time (s)')
         
         # Adjust layout and save

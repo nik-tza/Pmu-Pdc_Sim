@@ -23,14 +23,14 @@ public class CloudNetworkModel extends DefaultNetworkModel {
     // Custom transfer type for PMU measurement data
     public static final int SEND_PMU_DATA = 100;
     
-    // Jitter for realistic network variation
+    // Jitter for realistic network variation - loaded dynamically from properties
     private static final Random random = new Random();
-    private static final double CELLULAR_JITTER_MS = 5.0; // 5ms std jitter for cellular 
-    private static final double MAN_JITTER_MS = 2.0; // 2ms std jitter for MAN 
-    private static final double WAN_JITTER_MS = 8.0; // 8ms std jitter for WAN
+    private static double CELLULAR_JITTER_MS = 5.0; // Default fallback value
+    private static double MAN_JITTER_MS = 2.0; // Default fallback value 
+    private static double WAN_JITTER_MS = 8.0; // Default fallback value
     
     // **Distance-based delay parameters - Change this value directly**
-    private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 30; // μs per meter
+    private static final double DISTANCE_DELAY_MICROSECONDS_PER_METER = 4; // μs per meter
     private static final boolean ENABLE_DISTANCE_DELAYS = true; // Set to false for old behavior
     
     // Convert to seconds per meter for internal calculations
@@ -39,12 +39,64 @@ public class CloudNetworkModel extends DefaultNetworkModel {
     // Fixed PMU data size (2KB)
     private static final double PMU_DATA_SIZE_BITS = 2.0 * 8192.0;
     
+    // Static block to load jitter values from properties file
+    static {
+        loadJitterParametersFromProperties();
+    }
+    
     public CloudNetworkModel(SimulationManager simulationManager) {
         super(simulationManager);
         
-        System.out.println("CloudNetworkModel - Initialized with SimulationParameters, realistic jitter, and distance-based delays");
-        System.out.printf("CloudNetworkModel - Distance delays: %s (%.0fμs/m)%n", 
-                         ENABLE_DISTANCE_DELAYS ? "ENABLED" : "DISABLED", DISTANCE_DELAY_MICROSECONDS_PER_METER);
+        System.out.println("CloudNetworkModel - 3-hop path: PMU → GNB → TELCO → TSO");
+        System.out.printf("CloudNetworkModel - Distance delays: %s (%.0fμs/m), Jitter: C=%.1fms M=%.1fms W=%.1fms%n", 
+                         ENABLE_DISTANCE_DELAYS ? "ENABLED" : "DISABLED", 
+                         DISTANCE_DELAY_MICROSECONDS_PER_METER, CELLULAR_JITTER_MS, MAN_JITTER_MS, WAN_JITTER_MS);
+    }
+    
+    /**
+     * Load jitter parameters from simulation_parameters.properties file
+     */
+    private static void loadJitterParametersFromProperties() {
+        try {
+            java.util.Properties props = new java.util.Properties();
+            String propertiesPath = "UpfOnTelco_PdcOnCloud/settings/simulation_parameters.properties";
+            
+            // Try to load from file system
+            java.io.FileInputStream fis = null;
+            try {
+                fis = new java.io.FileInputStream(propertiesPath);
+                props.load(fis);
+                
+                // Load jitter values with fallback to defaults
+                String cellularJitterStr = props.getProperty("cellular_jitter_ms");
+                if (cellularJitterStr != null && !cellularJitterStr.trim().isEmpty()) {
+                    CELLULAR_JITTER_MS = Double.parseDouble(cellularJitterStr.trim());
+                }
+                
+                String manJitterStr = props.getProperty("man_jitter_ms");
+                if (manJitterStr != null && !manJitterStr.trim().isEmpty()) {
+                    MAN_JITTER_MS = Double.parseDouble(manJitterStr.trim());
+                }
+                
+                String wanJitterStr = props.getProperty("wan_jitter_ms");
+                if (wanJitterStr != null && !wanJitterStr.trim().isEmpty()) {
+                    WAN_JITTER_MS = Double.parseDouble(wanJitterStr.trim());
+                }
+                
+                System.out.printf("CloudNetworkModel - Loaded jitter from properties: C=%.1fms, M=%.1fms, W=%.1fms%n", 
+                                CELLULAR_JITTER_MS, MAN_JITTER_MS, WAN_JITTER_MS);
+                
+            } finally {
+                if (fis != null) {
+                    fis.close();
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("CloudNetworkModel - Failed to load jitter parameters from properties: " + e.getMessage());
+            System.err.println("CloudNetworkModel - Using default jitter values: C=" + CELLULAR_JITTER_MS + 
+                             "ms, M=" + MAN_JITTER_MS + "ms, W=" + WAN_JITTER_MS + "ms");
+        }
     }
     
     @Override
