@@ -14,7 +14,7 @@ This system simulates a **Smart Grid Power Monitoring Network** using **PMU (Pha
 
 | Network Map | Performance Analysis | Network Usage |
 |-------------|---------------------|---------------|
-| ![Cloud Simulation Map](UpfOnTelco_PdcOnCloud/output/0.015s_PDC_WaitingTime/cloud_simulation_map.png) | ![Performance Charts](UpfOnTelco_PdcOnCloud/output/0.015s_PDC_WaitingTime/performance_analysis_charts.png) | ![Network Usage](UpfOnTelco_PdcOnCloud/output/0.015s_PDC_WaitingTime/network_bandwidth_usage_charts.png) |
+| ![Cloud Simulation Map](UpfOnTelco_PdcOnCloud/output/max_wt_15ms/cloud_simulation_map.png) | ![Performance Charts](UpfOnTelco_PdcOnCloud/output/max_wt_15ms/performance_analysis_charts.png) | ![Network Usage](UpfOnTelco_PdcOnCloud/output/max_wt_15ms/network_bandwidth_usage_charts.png) |
 
 ### **Scenario 2: UpfOnTelco_PdcOnEdge** (Script: s2_sim.sh)
 - **UPF Location**: TELCO Hub
@@ -24,7 +24,7 @@ This system simulates a **Smart Grid Power Monitoring Network** using **PMU (Pha
 
 | Network Map | Performance Analysis | Network Usage |
 |-------------|---------------------|---------------|
-| ![Telco Simulation Map](UpfOnTelco_PdcOnEdge/output/0.0155s_PDC_WaitingTime/edge_simulation_map.png) | ![Performance Charts](UpfOnTelco_PdcOnEdge/output/0.0155s_PDC_WaitingTime/performance_analysis_charts.png) | ![Network Usage](UpfOnTelco_PdcOnEdge/output/0.0155s_PDC_WaitingTime/network_usage_analysis.png) |
+| ![Telco Simulation Map](UpfOnTelco_PdcOnEdge/output/max_wt_15ms_noHA/edge_simulation_map.png) | ![Performance Charts](UpfOnTelco_PdcOnEdge/output/max_wt_15ms_noHA/performance_analysis_charts.png) | ![Network Usage](UpfOnTelco_PdcOnEdge/output/max_wt_15ms_noHA/network_usage_analysis.png) |
 
 ### **Scenario 3: UpfOnEdge_PdcOnEdge** (Script: s3_sim.sh)
 - **UPF Location**: Edge Datacenters (GNBs)
@@ -34,7 +34,7 @@ This system simulates a **Smart Grid Power Monitoring Network** using **PMU (Pha
 
 | Network Map | Performance Analysis | Network Usage |
 |-------------|---------------------|---------------|
-| ![Edge Simulation Map](UpfOnEdge_PdcOnEdge/output/0.015s_PDC_WaitingTime/edge_simulation_map.png) | ![Performance Charts](UpfOnEdge_PdcOnEdge/output/0.015s_PDC_WaitingTime/performance_analysis_charts.png) | ![Network Usage](UpfOnEdge_PdcOnEdge/output/0.015s_PDC_WaitingTime/network_usage_analysis.png) |
+| ![Edge Simulation Map](UpfOnEdge_PdcOnEdge/output/max_wt_15ms_noHA/edge_simulation_map.png) | ![Performance Charts](UpfOnEdge_PdcOnEdge/output/max_wt_15ms_noHA/performance_analysis_charts.png) | ![Network Usage](UpfOnEdge_PdcOnEdge/output/max_wt_15ms_noHA/network_usage_analysis.png) |
 
 ## 🎯 Core Concept
 
